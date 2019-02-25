@@ -24,15 +24,18 @@ public:
     }
 
 private:
+    size_t n1, n2;
     std::vector<T*> rows;
     std::vector<T> data;
-    size_t n1, n2;
 };
 
 
 struct particle {
     double y = 0;
-    double px = 0, py = 0;
+    double y_next = 0;
+    double py = 0;
+    double py_next = 0;
+    double n = 0;
     double gamma = 1;
-    int type = 0;
+    double px = 0;
 };
