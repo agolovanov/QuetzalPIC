@@ -32,7 +32,7 @@ private:
 
 struct particle {
     double y = 0;
-    double y_next = 0;
+    double y_middle = 0;
     double py = 0;
     double py_next = 0;
     double n = 0;
