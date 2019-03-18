@@ -13,5 +13,5 @@ project (quasistatic_pic)
 find_package(HDF5 REQUIRED COMPONENTS C CXX)
 include_directories(${HDF5_INCLUDE_DIRS})
 
-add_executable(quasistatic_pic quasistatic_pic.cpp)
-target_link_libraries(quasistatic_pic ${HDF5_LIBRARIES} fftw3)
+add_executable(quasistatic_pic_2d quasistatic_pic_2d.cpp)
+target_link_libraries(quasistatic_pic_2d ${HDF5_LIBRARIES} fftw3)

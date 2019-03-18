@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fftw3.h>
 
-#include "containers.h"
+#include "containers_2d.h"
 
 const double PI = 3.14159265358979323846;
 
