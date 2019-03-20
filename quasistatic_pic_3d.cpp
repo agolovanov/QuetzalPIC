@@ -54,14 +54,20 @@ void deposit(double y, double z, double value, double * array) {
     array[nz * j2 + k2] += value * y_frac * z_frac;
 }
 
-double array_to_particle(double y, double z, array3d<double> & array, int slice) {
-    int j1 = (int) (y / dy);
+double array_to_particle(double y, double z, array3d<double> & array, int slice, double yshift=0.0, double zshift=0.0) {
+    int j1 = (int) (y / dy - yshift);
     int j2 = (j1 + 1) % ny;
-    double y_frac = (y / dy) - j1;
+    double y_frac = (y / dy - yshift) - j1;
+    if (j1 < 0) {
+        j1 += ny;
+    }
 
-    int k1 = (int) (z / dz);
+    int k1 = (int) (z / dz - zshift);
     int k2 = (k1 + 1) % nz;
-    double z_frac = (z / dz) - k1;
+    double z_frac = (z / dz - zshift) - k1;
+    if (k1 < 0) {
+        k1 += nz;
+    }
 
     return array(slice, j1, k1) * (1 - y_frac) * (1 - z_frac) + array(slice, j2, k1) * y_frac * (1 - z_frac) +
            array(slice, j1, k2) * (1 - y_frac) * z_frac + array(slice, j2, k2) * y_frac * z_frac;
@@ -139,7 +145,7 @@ void normalize_coordinates(double & y, double & z) {
     }
 }
 
-void solve_poisson_equation() {
+void solve_poisson_equation(double D=0.0) {
     fftw_execute(fftw_forward);
     fftw_out[0][0] = 0;
     fftw_out[0][1] = 0;
@@ -151,7 +157,7 @@ void solve_poisson_equation() {
                 continue;
             }
 
-            double multiplier = (2 * cos(2 * PI * j / ny) - 2) / dy / dy + (2 * cos(2 * PI * k / nz) - 2) / dz / dz;
+            double multiplier = -D + (2 * cos(2 * PI * j / ny) - 2) / dy / dy + (2 * cos(2 * PI * k / nz) - 2) / dz / dz;
 
             fftw_out[nz_size * j + k][0] /= multiplier;
             fftw_out[nz_size * j + k][1] /= multiplier;
@@ -172,7 +178,7 @@ int main() {
 
     nx = 150;
     ny = 150;
-    nz = 150;
+    nz = 300;
 
     fftw_in = fftw_alloc_real(ny * nz);
     fftw_out = fftw_alloc_complex(ny * (nz / 2 + 1));
@@ -187,10 +193,10 @@ int main() {
     dy = ly / ny;
     dz = lz / nz;
 
-    int ppcy = 1;
-    int ppcz = 1;
+    int ppcy = 2;
+    int ppcz = 2;
 
-    const int iterations = 1;
+    const int iterations = 4;
 
     std::vector<particle> particles(ny * nz * ppcy * ppcz);
     array2d<double> psi_middle(ny, nz);
@@ -232,7 +238,7 @@ int main() {
                 const double xsigma = 2;
                 const double ysigma = 2;
                 const double zsigma = 2;
-                a(i, j, k) = 0.01 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
+                a(i, j, k) = 2.0 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
                                        - (y-y0) * (y-y0) / ysigma / ysigma
                                        - (z-z0) * (z-z0) / zsigma / zsigma);
             }
@@ -300,12 +306,15 @@ int main() {
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a, i);
                 double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi, i);
                 double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi, i);
-                //double bz_particle = (1 - frac) * bz(i, j1) + frac * bz(i, j2);
+                double by_particle = array_to_particle(p.y, p.z, by, i, 0.5, 0.0);
+                double bz_particle = array_to_particle(p.y, p.z, bz, i, 0.0, 0.5);
+
                 p.py_next = p.py - dx * 0.5 * da_dy_particle / (1 + psi_particle);
                 p.py_next += dx * p.gamma * dpsi_dy_particle / (1 + psi_particle);
+                p.py_next -= dx * bz_particle;
                 p.pz_next = p.pz - dx * 0.5 * da_dz_particle / (1 + psi_particle);
                 p.pz_next += dx * p.gamma * dpsi_dz_particle / (1 + psi_particle);
-                //p.py_next -= dx * bz_particle;
+                p.pz_next += dx * by_particle;
             }
 
             // advance half coordinate
@@ -385,27 +394,41 @@ int main() {
                 deposit(p.y, p.z, p.n / (1 - vx), rho, i);
             }
 
-            /*
+            // new source for B_y
+            for (int j = 0; j < ny; j++) {
+                for (int k = 0; k < nz-1; k++) {
+                    fftw_in[nz * j + k] = -by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / dz + djz_dxi(j, k);
+                }
+                fftw_in[nz * j + (nz-1)] = -by(i, j, nz-1) - (jx(i, j, 0) - jx(i, j, nz-1)) / dz + djz_dxi(j, nz-1);
+            }
+
+            // new guess for B_y
+            solve_poisson_equation(1.0);
+
+            for (int j = 0; j < ny; j++) {
+                for (int k = 0; k < nz; k++) {
+                    by(i, j, k) = fftw_in[nz * j + k] / ny / nz;
+                }
+            }
+
             // new source for B_z
             for (int j = 0; j < ny-1; j++) {
-                fftw_in[j] = -bz(i, j) + (jx(i, j+1) - jx(i, j)) / dy - djy_dxi[j];
-                djx_dy(i, j) = (jx(i, j+1) - jx(i, j)) / dy;
+                for (int k = 0; k < nz; k++) {
+                    fftw_in[nz * j + k] = -bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / dy - djy_dxi(j, k);
+                }
             }
-            fftw_in[ny-1] = -bz(i,0) + (jx(i, 0) - jx(i, ny-1)) / dy - djy_dxi[ny-1];
-            djx_dy(i, ny-1) = (jx(i, 0) - jx(i, ny-1)) / dy;
+            for (int k = 0; k < nz; k++) {
+                fftw_in[nz * (ny-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, ny-1, k)) / dy - djy_dxi(ny-1, k);
+            }
 
             // new guess for B_z
-            fftw_execute(fftw_forward);
-            for (int j = 0; j < (ny / 2) + 1; j++) {
-                double k = 2 * PI * j / ly;
-                fftw_out[j][0] /= (-1 - k * k);
-                fftw_out[j][1] /= (-1 - k * k);
-            }
-            fftw_execute(fftw_backward);
+            solve_poisson_equation(1.0);
+
             for (int j = 0; j < ny; j++) {
-                bz(i, j) = (fftw_in[j] - fftw_in[0]) / ny;
+                for (int k = 0; k < nz; k++) {
+                    bz(i, j, k) = fftw_in[nz * j + k] / ny / nz;
+                }
             }
-            */
         }
 
         for (auto & p : particles) {
@@ -447,9 +470,9 @@ int main() {
     for (int i = 1; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
             for (int k = 0; k < nz-1; k++) {
-                ey(i, j, k) = -(psi(i, j, k+1) - psi(i, j, k)) / dz - by(i, j, k);
+                ez(i, j, k) = -(psi(i, j, k+1) - psi(i, j, k)) / dz - by(i, j, k);
             }
-            ey(i, j, nz-1) = -(psi(i, j, 0) - psi(i, j, nz-1)) / dz - by(i, j, nz-1);
+            ez(i, j, nz-1) = -(psi(i, j, 0) - psi(i, j, nz-1)) / dz - by(i, j, nz-1);
         }
     }
 
