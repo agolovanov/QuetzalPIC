@@ -174,10 +174,29 @@ void write_array(array3d<double> & field, std::string name, H5::H5File file) {
     dataset.write(&(field(0,0,0)), H5::PredType::NATIVE_DOUBLE);
 }
 
+double rhobunch(double xi, double y, double z) {
+    const double x0 = 4;
+    const double y0 = 10;
+    const double z0 = 10;
+
+    double xwidth = 2;
+    double ywidth = 1.5;
+    double zwidth = 1.5;
+
+    double x_prof = (fabs(xi - x0) < xwidth) ? cos(0.5 * PI * (xi - x0) / xwidth) : 0.0;
+    x_prof *= x_prof;
+    double y_prof = (fabs(y - y0) < ywidth) ? cos(0.5 * PI * (y - y0) / ywidth) : 0.0;
+    y_prof *= y_prof;
+    double z_prof = (fabs(z - z0) < zwidth) ? cos(0.5 * PI * (z - z0) / zwidth) : 0.0;
+    z_prof *= z_prof;
+
+    return -3.0 * x_prof * y_prof * z_prof;
+}
+
 int main() {
 
-    nx = 150;
-    ny = 150;
+    nx = 300;
+    ny = 300;
     nz = 300;
 
     fftw_in = fftw_alloc_real(ny * nz);
@@ -186,8 +205,8 @@ int main() {
     fftw_backward = fftw_plan_dft_c2r_2d(ny, nz, fftw_out, fftw_in, FFTW_MEASURE);
 
     lx = 20;
-    ly = 30;
-    lz = 30;
+    ly = 20;
+    lz = 20;
 
     dx = lx / nx;
     dy = ly / ny;
@@ -238,7 +257,7 @@ int main() {
                 const double xsigma = 2;
                 const double ysigma = 2;
                 const double zsigma = 2;
-                a(i, j, k) = 2.0 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
+                a(i, j, k) = 0.0 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
                                        - (y-y0) * (y-y0) / ysigma / ysigma
                                        - (z-z0) * (z-z0) / zsigma / zsigma);
             }
@@ -280,6 +299,13 @@ int main() {
         }
 
         // initial jx, rho deposition
+        for (int j = 0; j < ny; j++) {
+            for (int k = 0; k < nz; k++) {
+                jx(i, j, k) = rhobunch(i * dx, j * dy, k * dz);
+                rho(i, j, k) = rhobunch(i * dx, j * dy, k * dz);
+            }
+        }
+
         for (auto & p : particles) {
             double vx = p.px / p.gamma;
             deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
@@ -383,8 +409,8 @@ int main() {
             // new jx, rho deposition
             for (int j = 0; j < ny; j++) {
                 for (int k = 0; k < nz; k++) {
-                    jx(i, j, k) = 0.0;
-                    rho(i, j, k) = 0.0;
+                    jx(i, j, k) = rhobunch(i * dx, j * dy, k * dz);
+                    rho(i, j, k) = rhobunch(i * dx, j * dy, k * dz);
                 }
             }
 
