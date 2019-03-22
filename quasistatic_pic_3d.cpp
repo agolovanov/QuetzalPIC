@@ -3,6 +3,7 @@
 #include <H5Cpp.h>
 #include <iostream>
 #include <fftw3.h>
+#include <iomanip>
 
 #include "containers_3d.h"
 
@@ -19,19 +20,27 @@ fftw_complex * fftw_out;
 
 
 void deposit(double y, double z, double value, array3d<double> & array, int slice, double yshift=0.0, double zshift=0.0) {
-    int j1 = (int) (y / dy - yshift);
+    //std::cout << "Depositing...\n";
+    //std::cout << "y,z:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << y
+    //                    << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << z << "\n";
+
+    int j1 = (int) floor(y / dy - yshift);
     int j2 = (j1 + 1) % ny;
     double y_frac = (y / dy - yshift) - j1;
     if (j1 < 0) {
         j1 += ny;
     }
 
-    int k1 = (int) (z / dz - zshift);
+    //std::cout << "j1,j2,yfrac:" << j1 << " " << j2 << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << y_frac << "\n";
+
+    int k1 = (int) floor(z / dz - zshift);
     int k2 = (k1 + 1) % nz;
     double z_frac = (z / dz - zshift) - k1;
     if (k1 < 0) {
         k1 += nz;
     }
+
+    //std::cout << "k1,k2,zfrac:" << k1 << " " << k2 << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << z_frac << "\n";
 
     array(slice, j1, k1) += value * (1 - y_frac) * (1 - z_frac);
     array(slice, j2, k1) += value * y_frac * (1 - z_frac);
@@ -55,14 +64,14 @@ void deposit(double y, double z, double value, double * array) {
 }
 
 double array_to_particle(double y, double z, array3d<double> & array, int slice, double yshift=0.0, double zshift=0.0) {
-    int j1 = (int) (y / dy - yshift);
+    int j1 = (int) floor(y / dy - yshift);
     int j2 = (j1 + 1) % ny;
     double y_frac = (y / dy - yshift) - j1;
     if (j1 < 0) {
         j1 += ny;
     }
 
-    int k1 = (int) (z / dz - zshift);
+    int k1 = (int) floor(z / dz - zshift);
     int k2 = (k1 + 1) % nz;
     double z_frac = (z / dz - zshift) - k1;
     if (k1 < 0) {
@@ -88,7 +97,7 @@ double array_to_particle(double y, double z, array2d<double> & array) {
 
 
 double array_yder_to_particle(double y, double z, array3d<double> & array, int slice) {
-    int j1 = (int) (y / dy - 0.5);
+    int j1 = (int) floor(y / dy - 0.5);
     double y_frac = (y / dy - 0.5) - j1;
     if (j1 < 0) {
         j1 += ny;
@@ -114,7 +123,7 @@ double array_zder_to_particle(double y, double z, array3d<double> & array, int s
     int j2 = (j1 + 1) % ny;
     double y_frac = (y / dy) - j1;
 
-    int k1 = (int) (z / dz - 0.5);
+    int k1 = (int) floor(z / dz - 0.5);
     double z_frac = (z / dz - 0.5) - k1;
     if (k1 < 0) {
         k1 += nz;
@@ -190,32 +199,80 @@ double rhobunch(double xi, double y, double z) {
     double z_prof = (fabs(z - z0) < zwidth) ? cos(0.5 * PI * (z - z0) / zwidth) : 0.0;
     z_prof *= z_prof;
 
-    return -3.0 * x_prof * y_prof * z_prof;
+    return 0.0 * x_prof * y_prof * z_prof;
+}
+
+void print_slice(array3d<double> & a, int i) {
+    for (int j = 0; j < ny; j++) {
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(i, j, 0);
+    }
+    std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(i, 0, 0);
+    std::cout << "\n";
+
+    for (int k = nz-1; k>=0; k--) {
+        for (int j = 0; j < ny; j++) {
+            std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(i, j, k);
+        }
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(i, 0, k);
+        std::cout << "\n";
+    }
+}
+
+void print_arr(array2d<double> & a) {
+    for (int j = 0; j < ny; j++) {
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(j, 0);
+    }
+    std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(0, 0);
+    std::cout << "\n";
+
+    for (int k = nz-1; k>=0; k--) {
+        for (int j = 0; j < ny; j++) {
+            std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(j, k);
+        }
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a(0, k);
+        std::cout << "\n";
+    }
+}
+
+void print_arr(double * a) {
+    for (int j = 0; j < ny; j++) {
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a[nz * j];
+    }
+    std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a[0];
+    std::cout << "\n";
+
+    for (int k = nz-1; k>=0; k--) {
+        for (int j = 0; j < ny; j++) {
+            std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a[nz * j + k];
+        }
+        std::cout << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a[k];
+        std::cout << "\n";
+    }
 }
 
 int main() {
 
-    nx = 300;
-    ny = 300;
-    nz = 300;
+    nx = 8;
+    ny = 8;
+    nz = 8;
 
     fftw_in = fftw_alloc_real(ny * nz);
     fftw_out = fftw_alloc_complex(ny * (nz / 2 + 1));
     fftw_forward = fftw_plan_dft_r2c_2d(ny, nz, fftw_in, fftw_out, FFTW_MEASURE);
     fftw_backward = fftw_plan_dft_c2r_2d(ny, nz, fftw_out, fftw_in, FFTW_MEASURE);
 
-    lx = 20;
-    ly = 20;
-    lz = 20;
+    lx = 8;
+    ly = 8;
+    lz = 8;
 
     dx = lx / nx;
     dy = ly / ny;
     dz = lz / nz;
 
-    int ppcy = 2;
-    int ppcz = 2;
+    int ppcy = 1;
+    int ppcz = 1;
 
-    const int iterations = 4;
+    const int iterations = 1;
 
     std::vector<particle> particles(ny * nz * ppcy * ppcz);
     array2d<double> psi_middle(ny, nz);
@@ -251,13 +308,14 @@ int main() {
                 double x = i * dx;
                 double y = j * dy;
                 double z = k * dz;
-                const double x0 = 5;
+                //const double x0 = 5;
+                const double x0 = 4;
                 const double y0 = ly / 2;
                 const double z0 = lz / 2;
                 const double xsigma = 2;
                 const double ysigma = 2;
                 const double zsigma = 2;
-                a(i, j, k) = 0.0 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
+                a(i, j, k) = 0.01 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
                                        - (y-y0) * (y-y0) / ysigma / ysigma
                                        - (z-z0) * (z-z0) / zsigma / zsigma);
             }
@@ -267,11 +325,18 @@ int main() {
 
     // main loop
     for (int i = 0; i < nx; i++) {
-        std::cout << "Iteration " << i << std::endl;
+        std::cout << "Slice " << i << std::endl;
+
+        std::cout << "a(" << i << ")\n";
+        print_slice(a, i);
+
         // psi_source deposition
         for (auto & p : particles) {
             deposit(p.y, p.z, -p.n, psi_source, i);
         }
+
+        std::cout << "psi_source(" << i << ")\n";
+        print_slice(psi_source, i);
 
         // cacluate psi
         for (int j = 0; j < ny; j++) {
@@ -288,10 +353,17 @@ int main() {
             }
         }
 
+        std::cout << "psi(" << i << ")\n";
+        print_slice(psi, i);
+
         // calculate initial gamma, px
         for (auto & p : particles) {
             double a_particle = array_to_particle(p.y, p.z, a, i);
             double psi_particle = array_to_particle(p.y, p.z, psi, i);
+            std::cout << "y,z:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.y
+                    << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.z << "\n"
+                    << "a, psi:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << a_particle
+                    << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << psi_particle << "\n";
             p.gamma = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle + (1 + psi_particle) * (1 + psi_particle))
                     / (1 + psi_particle);
             p.px = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle - (1 + psi_particle) * (1 + psi_particle))
@@ -312,19 +384,34 @@ int main() {
             deposit(p.y, p.z, p.n / (1 - vx), rho, i);
         }
 
+        std::cout << "Initial jx(" << i << ")\n";
+        print_slice(jx, i);
+
+        std::cout << "Initial rho(" << i << ")\n";
+        print_slice(rho, i);
+
         if (i > 0) {
             for (int j = 0; j < ny; j++) {
                 for (int k = 0; k < nz; k++) {
+                    by(i, j, k) = by(i-1, j, k);
                     bz(i, j, k) = bz(i-1, j, k);
                 }
             }
         }
+
+        std::cout << "Initial by(" << i << ")\n";
+        print_slice(by, i);
+
+        std::cout << "Initial bz(" << i << ")\n";
+        print_slice(bz, i);
 
         if (i == nx - 1) {
             break;
         }
 
         for (int n = 0; n < iterations; n++) {
+            std::cout << "Iteration " << n << "\n";
+
             // advance momenta
             for (auto & p : particles) {
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
@@ -332,8 +419,18 @@ int main() {
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a, i);
                 double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi, i);
                 double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi, i);
-                double by_particle = array_to_particle(p.y, p.z, by, i, 0.5, 0.0);
-                double bz_particle = array_to_particle(p.y, p.z, bz, i, 0.0, 0.5);
+                double by_particle = array_to_particle(p.y, p.z, by, i, 0.0, 0.5);
+                double bz_particle = array_to_particle(p.y, p.z, bz, i, 0.5, 0.0);
+
+                std::cout << "y,z:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.y
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.z << "\n"
+                        << "psi:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << psi_particle << "\n"
+                        << "da/dy, da/dz: " << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << da_dy_particle
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << da_dz_particle << "\n"
+                        << "dpsi/dy, dpsi/dz: " << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << dpsi_dy_particle
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << dpsi_dz_particle << "\n"
+                        << "by, bz: " << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << by_particle
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << bz_particle << "\n";
 
                 p.py_next = p.py - dx * 0.5 * da_dy_particle / (1 + psi_particle);
                 p.py_next += dx * p.gamma * dpsi_dy_particle / (1 + psi_particle);
@@ -341,14 +438,21 @@ int main() {
                 p.pz_next = p.pz - dx * 0.5 * da_dz_particle / (1 + psi_particle);
                 p.pz_next += dx * p.gamma * dpsi_dz_particle / (1 + psi_particle);
                 p.pz_next += dx * by_particle;
+
+                std::cout << "py, pz: " << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.py_next
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.pz_next << "\n";
             }
 
             // advance half coordinate
+            std::cout << "Advance half coordinate\n";
             for (auto & p : particles) {
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
                 p.y_middle = p.y + 0.5 * dx * p.py_next / (1 + psi_particle);
                 p.z_middle = p.z + 0.5 * dx * p.pz_next / (1 + psi_particle);
                 normalize_coordinates(p.y_middle, p.z_middle);
+
+                std::cout << "y,z:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.y_middle
+                                    << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.z_middle << "\n";
             }
 
             // psi_source middle deposition
@@ -359,16 +463,21 @@ int main() {
             }
 
             for (auto & p : particles) {
-                deposit(p.y, p.z, -p.n, fftw_in);
+                deposit(p.y_middle, p.z_middle, -p.n, fftw_in);
             }
+
+            std::cout << "psi_middle source\n";
+            print_arr(fftw_in);
 
             // calculate psi_middle
             solve_poisson_equation();
             for (int j = 0; j < ny; j++) {
-                for (int k = 0; k < ny; k++) {
+                for (int k = 0; k < nz; k++) {
                     psi_middle(j, k) = (fftw_in[nz * j + k]) / ny / nz;
                 }
             }
+            std::cout << "psi_middle\n";
+            print_arr(psi_middle);
 
             // deposit jy, jz
             for (int j = 0; j < ny; j++) {
@@ -379,14 +488,18 @@ int main() {
             }
 
             for (auto & p : particles) {
-                int j1 = (int) (p.y / dy);
-                int j2 = (j1 + 1) % ny;
-                double frac = (p.y / dy) - j1;
-                double psi_particle = array_to_particle(p.y, p.z, psi_middle);
+                double psi_particle = array_to_particle(p.y_middle, p.z_middle, psi_middle);
+                std::cout << "y,z:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.y_middle
+                        << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << p.z_middle << "\n"
+                        << "psi:" << std::scientific << std::setw( 15 ) << std::setprecision( 6 ) << psi_particle << "\n";
 
-                deposit(p.y, p.z, p.n * p.py_next / (1 + psi_particle), jy, i+1, 0.5, 0.0);
-                deposit(p.y, p.z, p.n * p.pz_next / (1 + psi_particle), jz, i+1, 0.0, 0.5);
+                deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy, i+1, 0.5, 0.0);
+                deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz, i+1, 0.0, 0.5);
             }
+            std::cout << "jy(" << i+1 << ")\n";
+            print_slice(jy, i+1);
+            std::cout << "jz(" << i+1 << ")\n";
+            print_slice(jz, i+1);
 
             // calculate new djy_dxi, djz_dxi
             for (int j = 0; j < ny; j++) {
@@ -395,6 +508,12 @@ int main() {
                     djz_dxi(j, k) = (jz(i, j, k) - jz(i+1, j, k)) / dx;
                 }
             }
+
+            std::cout << "djy_dxi\n";
+            print_arr(djy_dxi);
+            std::cout << "djz_dxi\n";
+            print_arr(djz_dxi);
+
 
             // calculate new gamma, px
             for (auto & p : particles) {
@@ -419,6 +538,10 @@ int main() {
                 deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
                 deposit(p.y, p.z, p.n / (1 - vx), rho, i);
             }
+            std::cout << "jx(" << i << ")\n";
+            print_slice(jx, i);
+            std::cout << "rho(" << i << ")\n";
+            print_slice(rho, i);
 
             // new source for B_y
             for (int j = 0; j < ny; j++) {
@@ -427,6 +550,8 @@ int main() {
                 }
                 fftw_in[nz * j + (nz-1)] = -by(i, j, nz-1) - (jx(i, j, 0) - jx(i, j, nz-1)) / dz + djz_dxi(j, nz-1);
             }
+            std::cout << "by_source\n";
+            print_arr(fftw_in);
 
             // new guess for B_y
             solve_poisson_equation(1.0);
@@ -436,6 +561,8 @@ int main() {
                     by(i, j, k) = fftw_in[nz * j + k] / ny / nz;
                 }
             }
+            std::cout << "by(" << i << ")\n";
+            print_slice(by, i);
 
             // new source for B_z
             for (int j = 0; j < ny-1; j++) {
@@ -446,6 +573,8 @@ int main() {
             for (int k = 0; k < nz; k++) {
                 fftw_in[nz * (ny-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, ny-1, k)) / dy - djy_dxi(ny-1, k);
             }
+            std::cout << "bz_source\n";
+            print_arr(fftw_in);
 
             // new guess for B_z
             solve_poisson_equation(1.0);
@@ -455,6 +584,8 @@ int main() {
                     bz(i, j, k) = fftw_in[nz * j + k] / ny / nz;
                 }
             }
+            std::cout << "bz(" << i << ")\n";
+            print_slice(bz, i);
         }
 
         for (auto & p : particles) {
