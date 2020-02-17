@@ -71,8 +71,6 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
 
         }
     }
-
-    std::cout << "Finish init field" << std::endl;
 }
 
 void System_3d::solve_wakefield() {
@@ -137,8 +135,6 @@ void System_3d::solve_wakefield() {
         }
 
         for (int iteration = 0; iteration < magnetic_field_iterations; iteration++) {
-            std::cout << "Iteration " << iteration << "\n";
-
             // advance momenta
             for (auto & p : particles) {
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
