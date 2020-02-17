@@ -1,9 +1,12 @@
+#include <chrono>
+#include <fmt/core.h>
 #include "containers_3d.h"
 #include "System_parameters.h"
 #include "System_3d.h"
 
-
 int main() {
+    auto t_begin = std::chrono::high_resolution_clock::now();
+
     System_parameters params;
 
     params.l = {20, 20, 20};
@@ -16,5 +19,10 @@ int main() {
 
     system.solve_wakefield();
 
-    system.output();    
+    system.output();
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(t_end - t_begin).count();
+
+    fmt::print("Finished in {} s\n", duration);
 }
