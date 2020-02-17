@@ -1,3 +1,5 @@
+#pragma once
+
 #include <fftw3.h>
 #include "System_parameters.h"
 #include "containers_3d.h"
