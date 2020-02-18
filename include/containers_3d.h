@@ -5,6 +5,12 @@
 template <class T>
 struct vector3d {
     T x, y, z;
+    vector3d<T> & operator/=(T value) {
+        x /= value;
+        y /= value;
+        z /= value;
+        return *this;
+    }
 };
 
 using dvector3d = vector3d<double>;

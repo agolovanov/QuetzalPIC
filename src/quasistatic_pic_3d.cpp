@@ -3,6 +3,7 @@
 #include "containers_3d.h"
 #include "System_parameters.h"
 #include "System_3d.h"
+#include "Config_reader.h"
 #include <cmath>
 
 double rhobunch(double xi, double y, double z) {
@@ -24,33 +25,28 @@ double rhobunch(double xi, double y, double z) {
     return 0.0 * x_prof * y_prof * z_prof;
 }
 
-int main() {
+int main(int argc, char const *argv[]) {
+    std::string config_filename;
+    
+    if (argc < 2) {
+        std::cout << "Provide a path to the input .toml file as the first argument. Aborting." << std::endl;
+        return -1;
+    } else {
+        if (argc > 2) {
+            std::cout << "WARNING: more than one command-line argument are not supported. Additional arguments will be ignored" << std::endl;
+        }
+        config_filename = argv[1];
+    }
+
+    std::cout << "----------------------------------------" << std::endl;
+
+    System_parameters params = Config_reader(config_filename, std::cout).get_parameters();
+
+    std::cout << "----------------------------------------" << std::endl;
+
     auto t_begin = std::chrono::high_resolution_clock::now();
 
-    System_parameters params;
-
-    params.l = {20, 20, 20};
-    params.d = {0.1, 0.1, 0.1};
-    params.ppcy = 1;
-    params.ppcz = 1;
-    params.magnetic_field_iterations = 5;
-    params.rho = rhobunch;
-
-    const double x0 = 4;
-    const double y0 = params.l.y / 2;
-    const double z0 = params.l.z / 2;
-    const double xsigma = 2;
-    const double ysigma = 2;
-    const double zsigma = 2;
-    const double a0 = sqrt(2.0);
-
-    params.a_sqr = [x0, y0, z0, xsigma, ysigma, zsigma, a0] (double x, double y, double z) -> double {
-        return 0.5 * a0 * a0 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
-                                   - (y-y0) * (y-y0) / ysigma / ysigma
-                                   - (z-z0) * (z-z0) / zsigma / zsigma);
-    };
-
-    System_3d system{params};
+    System_3d system{params, std::cout};
 
     system.solve_wakefield();
 
@@ -59,5 +55,9 @@ int main() {
     auto t_end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(t_end - t_begin).count();
 
+    std::cout << "----------------------------------------" << std::endl;
+
     fmt::print("Finished in {} s\n", duration);
+
+    return 0;
 }

@@ -8,11 +8,12 @@
 #include "containers_3d.h"
 #include "output.h"
 
-System_3d::System_3d(System_parameters & params) : 
+System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
     d(params.d),
     magnetic_field_iterations(params.magnetic_field_iterations),
-    rhobunch(params.rho)
+    rhobunch(params.rho),
+    out(out)
 {
     if (magnetic_field_iterations <= 0) {
         throw std::invalid_argument("Magnetic field iterations should be positive");

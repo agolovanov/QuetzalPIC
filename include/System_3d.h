@@ -3,13 +3,14 @@
 #include <H5Cpp.h>
 #include <string>
 #include <functional>
+#include <iostream>
 #include "System_parameters.h"
 #include "containers_3d.h"
 #include "Fourier2d.h"
 
 class System_3d {
 public:
-    System_3d(System_parameters & params);
+    System_3d(System_parameters & params, std::ostream & out);
     void solve_wakefield();
     void output() const;
 private:
@@ -51,5 +52,7 @@ private:
     Fourier2d fourier;
 
     std::function<double(double, double, double)> rhobunch;
+
+    std::ostream & out;
 };
 
