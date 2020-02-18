@@ -11,4 +11,5 @@ struct System_parameters {
     int magnetic_field_iterations = 1;
 
     std::function<double(double, double, double)> a_sqr = [] (double x, double y, double z) -> double {return 0;};
+    std::function<double(double, double, double)> rho = [] (double x, double y, double z) -> double {return 0;};
 };

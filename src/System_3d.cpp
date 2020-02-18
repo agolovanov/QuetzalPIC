@@ -8,7 +8,11 @@
 #include "containers_3d.h"
 #include "output.h"
 
-System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), magnetic_field_iterations(params.magnetic_field_iterations)
+System_3d::System_3d(System_parameters & params) : 
+    l(params.l),
+    d(params.d),
+    magnetic_field_iterations(params.magnetic_field_iterations),
+    rhobunch(params.rho)
 {
     if (magnetic_field_iterations <= 0) {
         throw std::invalid_argument("Magnetic field iterations should be positive");
@@ -34,7 +38,6 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
 
     psi = array3d(n);
     psi_source = array3d(n);
-    dpsi_dy = array3d(n);
     a_sqr = array3d(n);
     jx = array3d(n);
     jy = array3d(n);
@@ -445,25 +448,6 @@ void System_3d::solve_poisson_equation(double D) {
         }
     }
     fourier.backward_transform();
-}
-
-double System_3d::rhobunch(double xi, double y, double z) const {
-    const double x0 = 4;
-    const double y0 = 10;
-    const double z0 = 10;
-
-    double xwidth = 2;
-    double ywidth = 1.5;
-    double zwidth = 1.5;
-
-    double x_prof = (fabs(xi - x0) < xwidth) ? cos(0.5 * M_PI * (xi - x0) / xwidth) : 0.0;
-    x_prof *= x_prof;
-    double y_prof = (fabs(y - y0) < ywidth) ? cos(0.5 * M_PI * (y - y0) / ywidth) : 0.0;
-    y_prof *= y_prof;
-    double z_prof = (fabs(z - z0) < zwidth) ? cos(0.5 * M_PI * (z - z0) / zwidth) : 0.0;
-    z_prof *= z_prof;
-
-    return 0.0 * x_prof * y_prof * z_prof;
 }
 
 void System_3d::init_particles(int ppcy, int ppcz) {

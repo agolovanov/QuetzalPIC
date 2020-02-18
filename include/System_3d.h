@@ -21,7 +21,6 @@ private:
     double array_zder_to_particle(double y, double z, const array3d & array, int slice) const;
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
-    double rhobunch(double xi, double y, double z) const;
     void init_particles(int ppcy, int ppcz);
     void init_a_sqr(std::function<double(double, double, double)> func);
 
@@ -38,7 +37,6 @@ private:
 
     array3d psi;
     array3d psi_source;
-    array3d dpsi_dy;
     array3d a_sqr;
     array3d jx;
     array3d jy;
@@ -51,5 +49,7 @@ private:
     array3d bz;
 
     Fourier2d fourier;
+
+    std::function<double(double, double, double)> rhobunch;
 };
 
