@@ -15,8 +15,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     rhobunch(params.rho),
     out(out)
 {
-    if (magnetic_field_iterations <= 0) {
-        throw std::invalid_argument("Magnetic field iterations should be positive");
+    if (magnetic_field_iterations < 0) {
+        throw std::invalid_argument("Magnetic field iterations should be non-negative");
     }
     if (params.ppcy <= 0) {
         throw std::invalid_argument("ppcy should be positive");
