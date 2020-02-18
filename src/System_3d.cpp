@@ -35,7 +35,7 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
     psi = array3d(n);
     psi_source = array3d(n);
     dpsi_dy = array3d(n);
-    a = array3d(n);
+    a_sqr = array3d(n);
     jx = array3d(n);
     jy = array3d(n);
     jz = array3d(n);
@@ -58,7 +58,7 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
                 const double xsigma = 2;
                 const double ysigma = 2;
                 const double zsigma = 2;
-                a(i, j, k) = 1.00 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
+                a_sqr(i, j, k) = 1.00 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
                                        - (y-y0) * (y-y0) / ysigma / ysigma
                                        - (z-z0) * (z-z0) / zsigma / zsigma);
             }
@@ -91,7 +91,7 @@ void System_3d::solve_wakefield() {
 
         // calculate initial gamma, px
         for (auto & p : particles) {
-            double a_particle = array_to_particle(p.y, p.z, a, i);
+            double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
             double psi_particle = array_to_particle(p.y, p.z, psi, i);
             p.gamma = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle + (1 + psi_particle) * (1 + psi_particle))
                     / (1 + psi_particle);
@@ -130,8 +130,8 @@ void System_3d::solve_wakefield() {
             // advance momenta
             for (auto & p : particles) {
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
-                double da_dy_particle = array_yder_to_particle(p.y, p.z, a, i);
-                double da_dz_particle = array_zder_to_particle(p.y, p.z, a, i);
+                double da_dy_particle = array_yder_to_particle(p.y, p.z, a_sqr, i);
+                double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
                 double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi, i);
                 double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi, i);
                 double by_particle = array_to_particle(p.y, p.z, by, i, 0.0, 0.5);
@@ -196,7 +196,7 @@ void System_3d::solve_wakefield() {
 
             // calculate new gamma, px
             for (auto & p : particles) {
-                double a_particle = array_to_particle(p.y, p.z, a, i);
+                double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
                 double p_squared = 0.25 * (p.py + p.py_next) * (p.py + p.py_next) + 0.25 * (p.pz + p.pz_next) * (p.pz + p.pz_next);
                 p.gamma = 0.5 * (1 + p_squared + a_particle +
@@ -304,7 +304,7 @@ void System_3d::solve_wakefield() {
 void System_3d::output() const {
     H5::H5File fields_file("Fields.h5", H5F_ACC_TRUNC);
 
-    write_array(a, "aSqr", fields_file);
+    write_array(a_sqr, "aSqr", fields_file);
     write_array(psi_source, "jx_minus_rho", fields_file);
     write_array(rho, "rho", fields_file);
     write_array(jx, "jx", fields_file);

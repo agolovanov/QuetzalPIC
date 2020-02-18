@@ -37,7 +37,7 @@ private:
     array3d psi;
     array3d psi_source;
     array3d dpsi_dy;
-    array3d a;
+    array3d a_sqr;
     array3d jx;
     array3d jy;
     array3d jz;
