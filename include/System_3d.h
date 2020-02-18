@@ -21,6 +21,7 @@ private:
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
     double rhobunch(double xi, double y, double z) const;
+    void init_particles(int ppcy, int ppcz);
 
     ivector3d n;
     dvector3d l;

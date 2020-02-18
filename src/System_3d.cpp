@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <H5Cpp.h>
+#include <cassert>
 
 #include "System_3d.h"
 #include "containers_3d.h"
@@ -23,9 +24,10 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
     n.y = static_cast<int>(l.y / d.y);
     n.z = static_cast<int>(l.z / d.z);
 
+    init_particles(params.ppcy, params.ppcz);
+
     fourier = Fourier2d(n.y, n.z);
 
-    particles = std::vector<particle>(n.y * n.z * params.ppcy * params.ppcz);
     psi_middle = array2d(n.y, n.z);
     djy_dxi = array2d(n.y, n.z);
     djz_dxi = array2d(n.y, n.z);
@@ -43,15 +45,6 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
     ez = array3d(n);
     by = array3d(n);
     bz = array3d(n);
-
-    for (int i = 0; i < params.ppcy * n.y; i++) {
-        for (int j = 0; j < params.ppcz * n.z; j++) {
-            int index = params.ppcz * n.z * i + j;
-            particles[index].y = (i + 0.5) * d.y / params.ppcy;
-            particles[index].z = (j + 0.5) * d.z / params.ppcz;
-            particles[index].n = -1.0 / params.ppcy / params.ppcz;
-        }
-    }
 
     for (int i = 0; i < n.x; i++) {
         for (int j = 0; j < n.y; j++) {
@@ -489,4 +482,19 @@ double System_3d::rhobunch(double xi, double y, double z) const {
     z_prof *= z_prof;
 
     return 0.0 * x_prof * y_prof * z_prof;
+}
+
+void System_3d::init_particles(int ppcy, int ppcz) {
+    assert(ppcy > 0);
+    assert(ppcz > 0);
+    particles = std::vector<particle>(n.y * n.z * ppcy * ppcz);
+
+    for (int i = 0; i < ppcy * n.y; i++) {
+        for (int j = 0; j < ppcz * n.z; j++) {
+            int index = ppcz * n.z * i + j;
+            particles[index].y = (i + 0.5) * d.y / ppcy;
+            particles[index].z = (j + 0.5) * d.z / ppcz;
+            particles[index].n = -1.0 / ppcy / ppcz;
+        }
+    }
 }
