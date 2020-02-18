@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include "containers_3d.h"
 
 struct System_parameters {
@@ -8,4 +9,6 @@ struct System_parameters {
     int ppcy = 1;
     int ppcz = 1;
     int magnetic_field_iterations = 1;
+
+    std::function<double(double, double, double)> a_sqr = [] (double x, double y, double z) -> double {return 0;};
 };

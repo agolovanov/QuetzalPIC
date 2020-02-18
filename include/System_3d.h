@@ -2,6 +2,7 @@
 
 #include <H5Cpp.h>
 #include <string>
+#include <functional>
 #include "System_parameters.h"
 #include "containers_3d.h"
 #include "Fourier2d.h"
@@ -22,6 +23,7 @@ private:
     void solve_poisson_equation(double D=0.0);
     double rhobunch(double xi, double y, double z) const;
     void init_particles(int ppcy, int ppcz);
+    void init_a_sqr(std::function<double(double, double, double)> func);
 
     ivector3d n;
     dvector3d l;

@@ -46,25 +46,7 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
     by = array3d(n);
     bz = array3d(n);
 
-    for (int i = 0; i < n.x; i++) {
-        for (int j = 0; j < n.y; j++) {
-            for (int k = 0; k < n.z; k++) {
-                double x = i * d.x;
-                double y = j * d.y;
-                double z = k * d.z;
-                const double x0 = 4;
-                const double y0 = l.y / 2;
-                const double z0 = l.z / 2;
-                const double xsigma = 2;
-                const double ysigma = 2;
-                const double zsigma = 2;
-                a_sqr(i, j, k) = 1.00 * exp(- (x-x0) * (x-x0) / xsigma / xsigma
-                                       - (y-y0) * (y-y0) / ysigma / ysigma
-                                       - (z-z0) * (z-z0) / zsigma / zsigma);
-            }
-
-        }
-    }
+    init_a_sqr(params.a_sqr);
 }
 
 void System_3d::solve_wakefield() {
@@ -495,6 +477,19 @@ void System_3d::init_particles(int ppcy, int ppcz) {
             particles[index].y = (i + 0.5) * d.y / ppcy;
             particles[index].z = (j + 0.5) * d.z / ppcz;
             particles[index].n = -1.0 / ppcy / ppcz;
+        }
+    }
+}
+
+void System_3d::init_a_sqr(std::function<double(double, double, double)> func) {
+    for (int i = 0; i < n.x; i++) {
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                double x = i * d.x;
+                double y = j * d.y;
+                double z = k * d.z;
+                a_sqr(i, j, k) = func(x, y, z);
+            }
         }
     }
 }
