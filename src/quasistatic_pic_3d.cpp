@@ -5,6 +5,7 @@
 #include "System_3d.h"
 #include "Config_reader.h"
 #include <cmath>
+#include <omp.h>
 
 double rhobunch(double xi, double y, double z) {
     const double x0 = 4;
@@ -41,6 +42,13 @@ int main(int argc, char const *argv[]) {
     std::cout << "----------------------------------------" << std::endl;
 
     System_parameters params = Config_reader(config_filename, std::cout).get_parameters();
+
+    std::cout << "----------------------------------------" << std::endl;
+
+    std::cout << "OpenMP threads: " << omp_get_max_threads() << std::endl;
+
+    fftw_init_threads();
+    fftw_plan_with_nthreads(omp_get_max_threads());
 
     std::cout << "----------------------------------------" << std::endl;
 

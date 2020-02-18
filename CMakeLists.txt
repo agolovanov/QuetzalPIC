@@ -12,6 +12,8 @@ else()
     message(FATAL_ERROR "cpptoml is not found; provide the path to cpptomlConfig.cmake in CMAKE_PREFIX_PATH")
 endif()
 
+find_package(OpenMP REQUIRED)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -DNDEBUG")
 
@@ -21,7 +23,7 @@ target_include_directories(quasistatic_pic_2d PRIVATE ${HDF5_INCLUDE_DIRS})
 target_include_directories(quasistatic_pic_3d PRIVATE ${HDF5_INCLUDE_DIRS})
 
 target_link_libraries(quasistatic_pic_2d ${HDF5_LIBRARIES} fftw3)
-target_link_libraries(quasistatic_pic_3d ${HDF5_LIBRARIES} fftw3 fmt::fmt cpptoml)
+target_link_libraries(quasistatic_pic_3d ${HDF5_LIBRARIES} fftw3 fftw3_omp fmt::fmt cpptoml OpenMP::OpenMP_CXX)
 
 target_compile_options(quasistatic_pic_2d PRIVATE -Wall -Wextra)
 target_compile_options(quasistatic_pic_3d PRIVATE -Wall -Wextra)
