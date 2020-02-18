@@ -20,7 +20,6 @@ private:
     double array_zder_to_particle(double y, double z, const array3d & array, int slice) const;
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
-    void write_array(const array3d & field, const std::string name, H5::H5File file) const;
     double rhobunch(double xi, double y, double z) const;
 
     ivector3d n;

@@ -1,8 +1,11 @@
-#include "System_3d.h"
-#include "containers_3d.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <H5Cpp.h>
+
+#include "System_3d.h"
+#include "containers_3d.h"
+#include "output.h"
 
 System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), magnetic_field_iterations(params.magnetic_field_iterations)
 {
@@ -467,14 +470,6 @@ void System_3d::solve_poisson_equation(double D) {
         }
     }
     fourier.backward_transform();
-}
-
-void System_3d::write_array(const array3d & field, const std::string name, H5::H5File file) const {
-    const hsize_t dims[3] {n.x, n.y, n.z};
-    H5::DataSpace dataspace(3, dims);
-
-    H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
-    dataset.write(&(field(0,0,0)), H5::PredType::NATIVE_DOUBLE);
 }
 
 double System_3d::rhobunch(double xi, double y, double z) const {
