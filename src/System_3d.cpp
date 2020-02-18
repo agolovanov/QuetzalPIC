@@ -20,10 +20,7 @@ System_3d::System_3d(System_parameters & params) : l(params.l), d(params.d), mag
     n.y = static_cast<int>(l.y / d.y);
     n.z = static_cast<int>(l.z / d.z);
 
-    fftw_in = fftw_alloc_real(n.y * n.z);
-    fftw_out = fftw_alloc_complex(n.y * (n.z / 2 + 1));
-    fftw_forward = fftw_plan_dft_r2c_2d(n.y, n.z, fftw_in, fftw_out, FFTW_MEASURE);
-    fftw_backward = fftw_plan_dft_c2r_2d(n.y, n.z, fftw_out, fftw_in, FFTW_MEASURE);
+    fourier = Fourier2d(n.y, n.z);
 
     particles = std::vector<particle>(n.y * n.z * params.ppcy * params.ppcz);
     psi_middle = array2d(n.y, n.z);
@@ -86,15 +83,13 @@ void System_3d::solve_wakefield() {
         // cacluate psi
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                fftw_in[n.z * j + k] = psi_source(i, j, k) - 1.0;
-                //fftw_in[nz * j + k] = exp(- (k - 0.5 * nz) * (k - 0.5 * nz) / 20.0 / 20.0) *
-                //        exp(- (j - 0.5 * ny) * (j - 0.5 * ny) / 20.0 / 20.0);
+                fourier.in[n.z * j + k] = psi_source(i, j, k) - 1.0;
             }
         }
         solve_poisson_equation();
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                psi(i, j, k) = (fftw_in[n.z * j + k]) / n.y / n.z;
+                psi(i, j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
             }
         }
 
@@ -165,19 +160,19 @@ void System_3d::solve_wakefield() {
             // psi_source middle deposition
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fftw_in[n.z * j + k] = -1.0; // rho_ion
+                    fourier.in[n.z * j + k] = -1.0; // rho_ion
                 }
             }
 
             for (auto & p : particles) {
-                deposit(p.y_middle, p.z_middle, -p.n, fftw_in);
+                deposit(p.y_middle, p.z_middle, -p.n, fourier.in);
             }
 
             // calculate psi_middle
             solve_poisson_equation();
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    psi_middle(j, k) = (fftw_in[n.z * j + k]) / n.y / n.z;
+                    psi_middle(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
                 }
             }
 
@@ -230,9 +225,9 @@ void System_3d::solve_wakefield() {
             // new source for B_y
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z-1; k++) {
-                    fftw_in[n.z * j + k] = -by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
+                    fourier.in[n.z * j + k] = -by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
                 }
-                fftw_in[n.z * j + (n.z-1)] = -by(i, j, n.z-1) - (jx(i, j, 0) - jx(i, j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
+                fourier.in[n.z * j + (n.z-1)] = -by(i, j, n.z-1) - (jx(i, j, 0) - jx(i, j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
             }
 
             // new guess for B_y
@@ -240,18 +235,18 @@ void System_3d::solve_wakefield() {
 
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    by(i, j, k) = fftw_in[n.z * j + k] / n.y / n.z;
+                    by(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
                 }
             }
 
             // new source for B_z
             for (int j = 0; j < n.y-1; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fftw_in[n.z * j + k] = -bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
+                    fourier.in[n.z * j + k] = -bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
                 }
             }
             for (int k = 0; k < n.z; k++) {
-                fftw_in[n.z * (n.y-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
+                fourier.in[n.z * (n.y-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
             }
 
             // new guess for B_z
@@ -259,7 +254,7 @@ void System_3d::solve_wakefield() {
 
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    bz(i, j, k) = fftw_in[n.z * j + k] / n.y / n.z;
+                    bz(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
                 }
             }
         }
@@ -325,14 +320,6 @@ void System_3d::output() const {
     write_array(ez, "ez", fields_file);
     write_array(by, "by", fields_file);
     write_array(bz, "bz", fields_file);
-}
-
-System_3d::~System_3d() {
-    fftw_destroy_plan(fftw_forward);
-    fftw_destroy_plan(fftw_backward);
-
-    fftw_free(fftw_in);
-    fftw_free(fftw_out);
 }
 
 void System_3d::deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {
@@ -462,9 +449,9 @@ void System_3d::normalize_coordinates(double & y, double & z) {
 }
 
 void System_3d::solve_poisson_equation(double D) {
-    fftw_execute(fftw_forward);
-    fftw_out[0][0] = 0;
-    fftw_out[0][1] = 0;
+    fourier.forward_transform();
+    fourier.out[0][0] = 0;
+    fourier.out[0][1] = 0;
     const int nz_size = (n.z / 2) + 1;
 
     for (int j = 0; j < n.y; j++) {
@@ -475,11 +462,11 @@ void System_3d::solve_poisson_equation(double D) {
 
             double multiplier = -D + (2 * cos(2 * M_PI * j / n.y) - 2) / d.y / d.y + (2 * cos(2 * M_PI * k / n.z) - 2) / d.z / d.z;
 
-            fftw_out[nz_size * j + k][0] /= multiplier;
-            fftw_out[nz_size * j + k][1] /= multiplier;
+            fourier.out[nz_size * j + k][0] /= multiplier;
+            fourier.out[nz_size * j + k][1] /= multiplier;
         }
     }
-    fftw_execute(fftw_backward);
+    fourier.backward_transform();
 }
 
 void System_3d::write_array(const array3d & field, const std::string name, H5::H5File file) const {

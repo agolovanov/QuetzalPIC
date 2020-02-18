@@ -1,15 +1,14 @@
 #pragma once
 
-#include <fftw3.h>
-#include "System_parameters.h"
-#include "containers_3d.h"
 #include <H5Cpp.h>
 #include <string>
+#include "System_parameters.h"
+#include "containers_3d.h"
+#include "Fourier2d.h"
 
 class System_3d {
 public:
     System_3d(System_parameters & params);
-    ~System_3d();
     void solve_wakefield();
     void output() const;
 private:
@@ -49,9 +48,6 @@ private:
     array3d by;
     array3d bz;
 
-    fftw_plan fftw_forward;
-    fftw_plan fftw_backward;
-    double * fftw_in;
-    fftw_complex * fftw_out;
+    Fourier2d fourier;
 };
 
