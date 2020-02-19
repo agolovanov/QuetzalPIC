@@ -60,6 +60,7 @@ void System_3d::solve_wakefield() {
         std::cout << "Slice " << i << std::endl;
 
         // psi_source deposition
+        #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = particles[pi];
             deposit(p.y, p.z, -p.n, psi_source, i);
@@ -102,7 +103,9 @@ void System_3d::solve_wakefield() {
             }
         }
 
-        for (auto & p : particles) {
+        #pragma omp parallel for
+        for (int pi = 0; pi < particle_number; pi++) {
+            auto & p = particles[pi];
             double vx = p.px / p.gamma;
             deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
             deposit(p.y, p.z, p.n / (1 - vx), rho, i);
@@ -161,7 +164,9 @@ void System_3d::solve_wakefield() {
                 }
             }
 
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 deposit(p.y_middle, p.z_middle, -p.n, fourier.in);
             }
 
@@ -184,7 +189,9 @@ void System_3d::solve_wakefield() {
                 }
             }
 
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 double psi_particle = array_to_particle(p.y_middle, p.z_middle, psi_middle);
                 deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy, i+1, 0.5, 0.0);
                 deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz, i+1, 0.0, 0.5);
@@ -220,7 +227,9 @@ void System_3d::solve_wakefield() {
                 }
             }
 
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 double vx = p.px / p.gamma;
                 deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
                 deposit(p.y, p.z, p.n / (1 - vx), rho, i);
@@ -353,9 +362,13 @@ void System_3d::deposit(double y, double z, double value, array3d & array, int s
         k1 += n.z;
     }
 
+    #pragma omp atomic update
     array(slice, j1, k1) += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
     array(slice, j2, k1) += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
     array(slice, j1, k2) += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
     array(slice, j2, k2) += value * y_frac * z_frac;
 }
 
@@ -368,9 +381,13 @@ void System_3d::deposit(double y, double z, double value, double * array) {
     int k2 = (k1 + 1) % n.z;
     double z_frac = (z / d.z) - k1;
 
+    #pragma omp atomic update
     array[n.z * j1 + k1] += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
     array[n.z * j2 + k1] += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
     array[n.z * j1 + k2] += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
     array[n.z * j2 + k2] += value * y_frac * z_frac;
 }
 
