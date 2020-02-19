@@ -54,21 +54,27 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 }
 
 void System_3d::solve_wakefield() {
+    int particle_number = particles.size();
+
     for (int i = 0; i < n.x; i++) {
         std::cout << "Slice " << i << std::endl;
 
         // psi_source deposition
-        for (auto & p : particles) {
+        for (int pi = 0; pi < particle_number; pi++) {
+            auto & p = particles[pi];
             deposit(p.y, p.z, -p.n, psi_source, i);
         }
 
         // cacluate psi
+        #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
                 fourier.in[n.z * j + k] = psi_source(i, j, k) - 1.0;
             }
         }
         solve_poisson_equation();
+
+        #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
                 psi(i, j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
@@ -76,7 +82,9 @@ void System_3d::solve_wakefield() {
         }
 
         // calculate initial gamma, px
-        for (auto & p : particles) {
+        #pragma omp parallel for
+        for (int pi = 0; pi < particle_number; pi++) {
+            auto & p = particles[pi];
             double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
             double psi_particle = array_to_particle(p.y, p.z, psi, i);
             p.gamma = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle + (1 + psi_particle) * (1 + psi_particle))
@@ -86,6 +94,7 @@ void System_3d::solve_wakefield() {
         }
 
         // initial jx, rho deposition
+        #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
                 jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
@@ -100,6 +109,7 @@ void System_3d::solve_wakefield() {
         }
 
         if (i > 0) {
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     by(i, j, k) = by(i-1, j, k);
@@ -114,7 +124,9 @@ void System_3d::solve_wakefield() {
 
         for (int iteration = 0; iteration < magnetic_field_iterations; iteration++) {
             // advance momenta
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
                 double da_dy_particle = array_yder_to_particle(p.y, p.z, a_sqr, i);
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
@@ -132,7 +144,9 @@ void System_3d::solve_wakefield() {
             }
 
             // advance half coordinate
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
                 p.y_middle = p.y + 0.5 * d.x * p.py_next / (1 + psi_particle);
                 p.z_middle = p.z + 0.5 * d.x * p.pz_next / (1 + psi_particle);
@@ -140,6 +154,7 @@ void System_3d::solve_wakefield() {
             }
 
             // psi_source middle deposition
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     fourier.in[n.z * j + k] = -1.0; // rho_ion
@@ -152,6 +167,8 @@ void System_3d::solve_wakefield() {
 
             // calculate psi_middle
             solve_poisson_equation();
+
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     psi_middle(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
@@ -159,6 +176,7 @@ void System_3d::solve_wakefield() {
             }
 
             // deposit jy, jz
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++){
                     jy(i+1, j, k) = 0.0;
@@ -173,6 +191,7 @@ void System_3d::solve_wakefield() {
             }
 
             // calculate new djy_dxi, djz_dxi
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     djy_dxi(j, k) = (jy(i, j, k) - jy(i+1, j, k)) / d.x;
@@ -181,7 +200,9 @@ void System_3d::solve_wakefield() {
             }
 
             // calculate new gamma, px
-            for (auto & p : particles) {
+            #pragma omp parallel for
+            for (int pi = 0; pi < particle_number; pi++) {
+                auto & p = particles[pi];
                 double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
                 double psi_particle = array_to_particle(p.y, p.z, psi, i);
                 double p_squared = 0.25 * (p.py + p.py_next) * (p.py + p.py_next) + 0.25 * (p.pz + p.pz_next) * (p.pz + p.pz_next);
@@ -191,6 +212,7 @@ void System_3d::solve_wakefield() {
             }
 
             // new jx, rho deposition
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
@@ -205,6 +227,7 @@ void System_3d::solve_wakefield() {
             }
 
             // new source for B_y
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z-1; k++) {
                     fourier.in[n.z * j + k] = -by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
@@ -215,6 +238,7 @@ void System_3d::solve_wakefield() {
             // new guess for B_y
             solve_poisson_equation(1.0);
 
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     by(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
@@ -222,11 +246,13 @@ void System_3d::solve_wakefield() {
             }
 
             // new source for B_z
+            #pragma omp parallel for
             for (int j = 0; j < n.y-1; j++) {
                 for (int k = 0; k < n.z; k++) {
                     fourier.in[n.z * j + k] = -bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
                 }
             }
+            #pragma omp parallel for
             for (int k = 0; k < n.z; k++) {
                 fourier.in[n.z * (n.y-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
             }
@@ -234,6 +260,7 @@ void System_3d::solve_wakefield() {
             // new guess for B_z
             solve_poisson_equation(1.0);
 
+            #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     bz(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
@@ -241,13 +268,17 @@ void System_3d::solve_wakefield() {
             }
         }
 
-        for (auto & p : particles) {
+        #pragma omp parallel for
+        for (int pi = 0; pi < particle_number; pi++) {
+            auto & p = particles[pi];
             p.py = p.py_next;
             p.pz = p.pz_next;
         }
 
         // advance coordinate
-        for (auto & p : particles) {
+        #pragma omp parallel for
+        for (int pi = 0; pi < particle_number; pi++) {
+            auto & p = particles[pi];
             double psi_particle = array_to_particle(p.y, p.z, psi_middle);
             p.y += d.x * p.py / (1 + psi_particle);
             p.z += d.x * p.pz / (1 + psi_particle);
@@ -256,6 +287,7 @@ void System_3d::solve_wakefield() {
     }
 
     // calculate ex
+    #pragma omp parallel for
     for (int i = 1; i < n.x; i++) {
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
@@ -265,6 +297,7 @@ void System_3d::solve_wakefield() {
     }
 
     // calculate ey
+    #pragma omp parallel for
     for (int i = 1; i < n.x; i++) {
         for (int j = 0; j < n.y-1; j++) {
             for (int k = 0; k < n.z; k++) {
@@ -277,6 +310,7 @@ void System_3d::solve_wakefield() {
     }
 
     // calculate ez
+    #pragma omp parallel for
     for (int i = 1; i < n.x; i++) {
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z-1; k++) {
@@ -436,6 +470,7 @@ void System_3d::solve_poisson_equation(double D) {
     fourier.out[0][1] = 0;
     const int nz_size = (n.z / 2) + 1;
 
+    #pragma omp parallel for
     for (int j = 0; j < n.y; j++) {
         for (int k = 0; k < nz_size; k++){
             if ((k == 0) && (j == 0)) {
