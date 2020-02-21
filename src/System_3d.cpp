@@ -3,10 +3,24 @@
 #include <stdexcept>
 #include <H5Cpp.h>
 #include <cassert>
+#include <fmt/format.h>
+#include <vector>
+#include <string>
 
 #include "System_3d.h"
 #include "containers_3d.h"
 #include "output.h"
+
+std::string memory_formatter(long bytes) {
+    double res = bytes;
+    const std::vector<std::string> prefixes {"b", "KiB", "MiB", "GiB", "TiB", "PiB"};
+    int index = 0;
+    while (res > 1024) {
+        res /= 1024;
+        index++;
+    }
+    return fmt::format("{:.1f} {}", res, prefixes[index]);
+}
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
@@ -28,6 +42,18 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     n.x = static_cast<int>(l.x / d.x);
     n.y = static_cast<int>(l.y / d.y);
     n.z = static_cast<int>(l.z / d.z);
+
+    out << fmt::format("Space dimensions [{}, {}, {}]", n.x, n.y, n.z) << std::endl;
+
+    const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
+    const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
+    const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
+    const long total_memory = array2d_memory + array3d_memory + particle_memory;
+
+    out << "Expected RAM usage:\n";
+    out << fmt::format("Total: {}, 2D arrays: {}, 3D arrays: {}, particles: {}", 
+                       memory_formatter(total_memory), memory_formatter(array2d_memory),
+                       memory_formatter(array3d_memory), memory_formatter(particle_memory)) << std::endl;
 
     init_particles(params.ppcy, params.ppcz);
 
