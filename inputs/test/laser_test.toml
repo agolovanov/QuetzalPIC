@@ -17,3 +17,6 @@ xsigma = 4
 ysigma = 4
 zsigma = 4
 x0 = 5
+
+[output]
+fields_3d = yes

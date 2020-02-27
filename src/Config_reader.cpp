@@ -35,6 +35,10 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
     out << std::endl;
 
     init_laser();
+
+    out << std::endl;
+
+    init_output_parameters();
 }
 
 template <class T>
@@ -60,7 +64,7 @@ T Config_reader::read_value(const std::string & name, T default_value) {
 
 template <class T>
 T Config_reader::read_value(const std::string & name, T default_value, std::shared_ptr<cpptoml::table> table) {
-    auto value = table->get_as<int>(name);
+    auto value = table->get_as<T>(name);
     if (value) { 
         out << fmt::format("{} = {}", name, *value) << std::endl;
         return *value;
@@ -97,4 +101,19 @@ void Config_reader::init_laser() {
     } else {
         out << "No [laser] block in config" << std::endl;
     }
+}
+
+void Config_reader::init_output_parameters() {
+    Output_parameters output_parameters;
+
+    if (config->contains("output")) {
+        out << "Parsing [output] ..." << std::endl;
+        auto output_table = config->get_table("output");
+
+        output_parameters.output3d = read_value<bool>("fields_3d", false, output_table);
+    } else {
+        out << "No [output] block in config; no output files will be created" << std::endl;
+    }
+
+    params.output_parameters = output_parameters;
 }

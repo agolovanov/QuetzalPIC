@@ -27,7 +27,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     d(params.d),
     magnetic_field_iterations(params.magnetic_field_iterations),
     rhobunch(params.rho),
-    out(out)
+    out(out),
+    output_parameters(params.output_parameters)
 {
     if (magnetic_field_iterations < 0) {
         throw std::invalid_argument("Magnetic field iterations should be non-negative");
@@ -357,20 +358,22 @@ void System_3d::solve_wakefield() {
 }
 
 void System_3d::output() const {
-    H5::H5File fields_file("Fields.h5", H5F_ACC_TRUNC);
+    if (output_parameters.output3d) {
+        H5::H5File fields_file("Fields.h5", H5F_ACC_TRUNC);
 
-    write_array(a_sqr, "aSqr", fields_file);
-    write_array(psi_source, "jx_minus_rho", fields_file);
-    write_array(rho, "rho", fields_file);
-    write_array(jx, "jx", fields_file);
-    write_array(jy, "jy", fields_file);
-    write_array(jz, "jz", fields_file);
-    write_array(psi, "psi", fields_file);
-    write_array(ex, "ex", fields_file);
-    write_array(ey, "ey", fields_file);
-    write_array(ez, "ez", fields_file);
-    write_array(by, "by", fields_file);
-    write_array(bz, "bz", fields_file);
+        write_array(a_sqr, "aSqr", fields_file);
+        write_array(psi_source, "jx_minus_rho", fields_file);
+        write_array(rho, "rho", fields_file);
+        write_array(jx, "jx", fields_file);
+        write_array(jy, "jy", fields_file);
+        write_array(jz, "jz", fields_file);
+        write_array(psi, "psi", fields_file);
+        write_array(ex, "ex", fields_file);
+        write_array(ey, "ey", fields_file);
+        write_array(ez, "ez", fields_file);
+        write_array(by, "by", fields_file);
+        write_array(bz, "bz", fields_file);
+    }
 }
 
 void System_3d::deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {

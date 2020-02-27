@@ -3,6 +3,10 @@
 #include <functional>
 #include "containers_3d.h"
 
+struct Output_parameters {
+    bool output3d = false;
+};
+
 struct System_parameters {
     dvector3d l;
     dvector3d d;
@@ -12,4 +16,6 @@ struct System_parameters {
 
     std::function<double(double, double, double)> a_sqr = [] (double x, double y, double z) -> double {return 0;};
     std::function<double(double, double, double)> rho = [] (double x, double y, double z) -> double {return 0;};
+
+    Output_parameters output_parameters;
 };

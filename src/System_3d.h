@@ -31,6 +31,8 @@ private:
 
     int magnetic_field_iterations;
 
+    Output_parameters output_parameters;
+
     std::vector<particle> particles;
     array2d psi_middle;
     array2d djy_dxi;
