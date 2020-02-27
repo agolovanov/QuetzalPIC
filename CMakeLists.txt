@@ -1,5 +1,10 @@
 cmake_minimum_required (VERSION 3.10)
 
+if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+endif()
+
+
 project (quasistatic_pic)
 
 find_package(HDF5 REQUIRED COMPONENTS C CXX)
@@ -15,7 +20,7 @@ endif()
 find_package(OpenMP REQUIRED)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=native -DNDEBUG")
 
 add_executable(quasistatic_pic_2d src/quasistatic_pic_2d.cpp)
 add_executable(quasistatic_pic_3d src/quasistatic_pic_3d.cpp src/System_3d.cpp src/Fourier2d.cpp src/output.cpp src/Config_reader.cpp src/profiles.cpp)
