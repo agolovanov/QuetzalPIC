@@ -7,3 +7,11 @@ void write_array(const array3d & array, const std::string name, H5::H5File file)
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
     dataset.write(&(array(0,0,0)), H5::PredType::NATIVE_DOUBLE);
 }
+
+void write_array(const array2d & array, const std::string name, H5::H5File file) {
+    const hsize_t dims[2] {array.get_n1(), array.get_n2()};
+    H5::DataSpace dataspace(2, dims);
+
+    H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
+    dataset.write(&(array(0,0)), H5::PredType::NATIVE_DOUBLE);
+}
