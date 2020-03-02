@@ -31,7 +31,11 @@ private:
 
     int magnetic_field_iterations;
 
+    std::function<double(double, double, double)> rhobunch;
+
     Output_parameters output_parameters;
+    
+    std::ostream & out;
 
     std::vector<particle> particles;
     array2d psi_middle;
@@ -52,9 +56,5 @@ private:
     array3d bz;
 
     Fourier2d fourier;
-
-    std::function<double(double, double, double)> rhobunch;
-
-    std::ostream & out;
 };
 

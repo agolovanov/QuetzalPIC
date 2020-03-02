@@ -27,8 +27,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     d(params.d),
     magnetic_field_iterations(params.magnetic_field_iterations),
     rhobunch(params.rho),
-    out(out),
-    output_parameters(params.output_parameters)
+    output_parameters(params.output_parameters),
+    out(out)
 {
     if (magnetic_field_iterations < 0) {
         throw std::invalid_argument("Magnetic field iterations should be non-negative");
@@ -64,18 +64,18 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     djy_dxi = array2d(n.y, n.z);
     djz_dxi = array2d(n.y, n.z);
 
-    psi = array3d(n);
-    psi_source = array3d(n);
-    a_sqr = array3d(n);
-    jx = array3d(n);
-    jy = array3d(n);
-    jz = array3d(n);
-    rho = array3d(n);
-    ex = array3d(n);
-    ey = array3d(n);
-    ez = array3d(n);
-    by = array3d(n);
-    bz = array3d(n);
+    psi = array3d(n, d);
+    psi_source = array3d(n, d);
+    a_sqr = array3d(n, d);
+    jx = array3d(n, d);
+    jy = array3d(n, d);
+    jz = array3d(n, d);
+    rho = array3d(n, d);
+    ex = array3d(n, d);
+    ey = array3d(n, d);
+    ez = array3d(n, d);
+    by = array3d(n, d);
+    bz = array3d(n, d);
 
     init_a_sqr(params.a_sqr);
 }

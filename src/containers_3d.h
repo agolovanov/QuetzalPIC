@@ -22,35 +22,42 @@ class array3d_t {
 public:
     array3d_t() = default;
 
-    array3d_t(const size_t n1, const size_t n2, const size_t n3) :
-            n1(n1), n2(n2), n3(n3), data(n1 * n2 * n3) {
-    }
-
-    array3d_t(const ivector3d n) : array3d_t(n.x, n.y, n.z) {}
+    array3d_t(const ivector3d n, const dvector3d d = {0, 0, 0}, const dvector3d origin = {0, 0, 0}) :
+        n(n), data(n.x * n.y * n.z), d(d), origin(origin) {}
 
     inline T& operator()(const size_t i, const size_t j, const size_t k) {
-        return data[n2 * n3 * i + n3 * j + k];
+        return data[n.y * n.z * i + n.z * j + k];
     }
 
     inline const T& operator()(const size_t i, const size_t j, const size_t k) const {
-        return data[n2 * n3 * i + n3 * j + k];
+        return data[n.y * n.z * i + n.z * j + k];
     }
 
     inline auto get_n1() const {
-        return n1;
+        return n.x;
     }
 
     inline auto get_n2() const {
-        return n2;
+        return n.y;
     }
 
     inline auto get_n3() const {
-        return n3;
+        return n.z;
+    }
+
+    inline auto get_origin() const {
+        return origin;
+    }
+
+    inline auto get_steps() const {
+        return d;
     }
 
 private:
-    size_t n1, n2, n3;
+    ivector3d n;
     std::vector<T> data;
+    dvector3d d;
+    dvector3d origin;
 };
 
 using array3d = array3d_t<double>;
