@@ -9,3 +9,9 @@ std::function<double(double, double, double)> gaussian(double amplitude, vector3
     };
     return func;
 }
+
+std::function<double(double, double, double)> constant(double amplitude) {
+    // Cast to void added to suppress warnings
+    auto func = [amplitude] (double x, double y, double z) -> double { (void)x; (void)y; (void)z; return amplitude; };
+    return func;
+}

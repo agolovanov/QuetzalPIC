@@ -2,6 +2,7 @@
 
 #include <functional>
 #include "containers_3d.h"
+#include "profiles.h"
 
 struct Output_parameters {
     bool output3d = false;
@@ -14,8 +15,8 @@ struct System_parameters {
     int ppcz = 1;
     int magnetic_field_iterations = 1;
 
-    std::function<double(double, double, double)> a_sqr = [] (double x, double y, double z) -> double {return 0;};
-    std::function<double(double, double, double)> rho = [] (double x, double y, double z) -> double {return 0;};
+    std::function<double(double, double, double)> a_sqr = constant(0.0);
+    std::function<double(double, double, double)> rho = constant(0.0);
 
     Output_parameters output_parameters;
 };
