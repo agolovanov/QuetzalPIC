@@ -26,8 +26,8 @@ private:
     void init_a_sqr(std::function<double(double, double, double)> func);
 
     ivector3d n;
-    dvector3d l;
-    dvector3d d;
+    vector3d l;
+    vector3d d;
 
     int magnetic_field_iterations;
 

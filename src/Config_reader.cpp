@@ -89,7 +89,7 @@ void Config_reader::init_laser() {
             const double y0 = read_value<double>("y0", 0.5 * params.l.y, laser_table);
             const double z0 = read_value<double>("z0", 0.5 * params.l.z, laser_table);
             
-            dvector3d width{xsigma, ysigma, zsigma};
+            vector3d width{xsigma, ysigma, zsigma};
             // conversion from full width at 1/e^2 to Gauss paramters
             width /= sqrt(8.0);
             

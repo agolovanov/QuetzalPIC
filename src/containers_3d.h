@@ -3,9 +3,9 @@
 #include <vector>
 
 template <class T>
-struct vector3d {
+struct vector3d_t {
     T x, y, z;
-    vector3d<T> & operator/=(T value) {
+    vector3d_t<T> & operator/=(T value) {
         x /= value;
         y /= value;
         z /= value;
@@ -13,8 +13,8 @@ struct vector3d {
     }
 };
 
-using dvector3d = vector3d<double>;
-using ivector3d = vector3d<int>;
+using vector3d = vector3d_t<double>;
+using ivector3d = vector3d_t<int>;
 
 
 template <class T>
@@ -22,7 +22,7 @@ class array3d_t {
 public:
     array3d_t() = default;
 
-    array3d_t(const ivector3d n, const dvector3d d = {0, 0, 0}, const dvector3d origin = {0, 0, 0}) :
+    array3d_t(const ivector3d n, const vector3d d = {0, 0, 0}, const vector3d origin = {0, 0, 0}) :
         n(n), data(n.x * n.y * n.z), d(d), origin(origin) {}
 
     inline T& operator()(const size_t i, const size_t j, const size_t k) {
@@ -56,8 +56,8 @@ public:
 private:
     ivector3d n;
     std::vector<T> data;
-    dvector3d d;
-    dvector3d origin;
+    vector3d d;
+    vector3d origin;
 };
 
 using array3d = array3d_t<double>;
