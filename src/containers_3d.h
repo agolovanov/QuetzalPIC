@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <array>
 
 template <class T>
 struct vector3d_t {
@@ -62,37 +63,61 @@ private:
 
 using array3d = array3d_t<double>;
 
+using vector2d = std::array<double, 2>;
+using ivector2d = std::array<int, 2>;
+
+enum class Plane {
+    NONE=0, XY=1, XZ=2, YZ=3
+};
+
 template <class T>
 class array2d_t {
 public:
     array2d_t() = default;
 
-    array2d_t(const size_t n1, const size_t n2) : n1(n1), n2(n2), rows(n1), data(n1 * n2) {
-        for (int i = 0; i < n1; i++) {
-            rows[i] = &data[n2 * i];
-        }
+    array2d_t(const ivector2d n, const vector2d steps = {0, 0}, const vector2d origin = {0, 0}, 
+              Plane plane = Plane::NONE, double plane_coordinate = 0) : 
+        n(n), data(n[0] * n[1]), steps(steps), origin(origin), plane(plane), plane_coordinate(plane_coordinate) { }
+
+    inline T& operator()(const int i, const int j) {
+        return data[n[1] * i + j];
     }
 
-    inline T& operator()(const size_t i, const size_t j) {
-        return rows[i][j];
-    }
-
-    inline const T& operator()(const size_t i, const size_t j) const {
-        return rows[i][j];
+    inline const T& operator()(const int i, const int j) const {
+        return data[n[1] * i + j];
     }
 
     inline auto get_n1() const {
-        return n1;
+        return n[0];
     }
 
     inline auto get_n2() const {
-        return n2;
+        return n[1];
+    }
+
+    inline auto get_steps() const {
+        return steps;
+    }
+
+    inline auto get_origin() const {
+        return origin;
+    }
+
+    inline auto get_plane() const { 
+        return plane;
+    }
+
+    inline auto get_plane_coordinate() const {
+        return plane_coordinate;
     }
 
 private:
-    size_t n1, n2;
-    std::vector<T*> rows;
+    ivector2d n;
     std::vector<T> data;
+    vector2d steps;
+    vector2d origin;
+    Plane plane;
+    double plane_coordinate;
 };
 
 using array2d = array2d_t<double>;

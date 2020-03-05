@@ -60,9 +60,9 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     fourier = Fourier2d(n.y, n.z);
 
-    psi_middle = array2d(n.y, n.z);
-    djy_dxi = array2d(n.y, n.z);
-    djz_dxi = array2d(n.y, n.z);
+    psi_middle = array2d({n.y, n.z});
+    djy_dxi = array2d({n.y, n.z});
+    djz_dxi = array2d({n.y, n.z});
 
     psi = array3d(n, d);
     psi_source = array3d(n, d);
