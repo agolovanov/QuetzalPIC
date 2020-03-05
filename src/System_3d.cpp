@@ -68,14 +68,14 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     psi_source = array3d(n, d);
     a_sqr = array3d(n, d);
     jx = array3d(n, d);
-    jy = array3d(n, d);
-    jz = array3d(n, d);
+    jy = array3d(n, d, {-0.5 * d.x, 0.5 * d.y, 0});
+    jz = array3d(n, d, {-0.5 * d.x, 0, 0.5 * d.z});
     rho = array3d(n, d);
-    ex = array3d(n, d);
-    ey = array3d(n, d);
-    ez = array3d(n, d);
-    by = array3d(n, d);
-    bz = array3d(n, d);
+    ex = array3d(n, d, {-0.5 * d.x, 0, 0});
+    ey = array3d(n, d, {0, 0.5 * d.y, 0});
+    ez = array3d(n, d, {0, 0, 0.5 * d.z});
+    by = array3d(n, d, {0, 0, 0.5 * d.z});
+    bz = array3d(n, d, {0, 0.5 * d.y, 0});
 
     init_a_sqr(params.a_sqr);
 }
