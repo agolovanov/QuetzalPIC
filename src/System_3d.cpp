@@ -374,6 +374,23 @@ void System_3d::output() const {
         write_array(by, "by", fields_file);
         write_array(bz, "bz", fields_file);
     }
+    if (output_parameters.output_xy) {
+        H5::H5File fields_xy_file("Fields_xy.h5", H5F_ACC_TRUNC);
+
+        const double z0 = 0.5 * l.z;
+        write_array(calculate_xy_slice(a_sqr, z0), "aSqr", fields_xy_file);
+        write_array(calculate_xy_slice(rho, z0), "rho", fields_xy_file);
+        write_array(calculate_xy_slice(jx, z0), "jx", fields_xy_file);
+        write_array(calculate_xy_slice(jy, z0), "jy", fields_xy_file);
+        write_array(calculate_xy_slice(jz, z0), "jz", fields_xy_file);
+        write_array(calculate_xy_slice(psi, z0), "psi", fields_xy_file);
+        write_array(calculate_xy_slice(ex, z0), "ex", fields_xy_file);
+        write_array(calculate_xy_slice(ey, z0), "ey", fields_xy_file);
+        write_array(calculate_xy_slice(ez, z0), "ez", fields_xy_file);
+
+        write_array(calculate_xy_slice(by, z0), "by", fields_xy_file);
+        write_array(calculate_xy_slice(bz, z0), "bz", fields_xy_file);
+    }
 }
 
 void System_3d::deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {

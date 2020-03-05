@@ -24,4 +24,27 @@ void write_array(const array2d & array, const std::string name, H5::H5File file)
 
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
     dataset.write(&(array(0,0)), H5::PredType::NATIVE_DOUBLE);
+
+    const hsize_t attribute_dims[1] {2};
+    H5::DataSpace attribute_data_space(1, attribute_dims);
+    auto attribute = dataset.createAttribute("steps", H5::PredType::NATIVE_DOUBLE, attribute_data_space);
+    const auto steps = array.get_steps();
+    attribute.write(H5::PredType::NATIVE_DOUBLE, &(steps[0]));
+
+    attribute = dataset.createAttribute("origin", H5::PredType::NATIVE_DOUBLE, attribute_data_space);
+    const auto origin = array.get_origin();
+    attribute.write(H5::PredType::NATIVE_DOUBLE, &(origin[0]));
+
+    auto plane = array.get_plane();
+    if (plane != Plane::NONE) {
+        H5::DataSpace scalar_data_space{};
+
+        attribute = dataset.createAttribute("plane", H5::PredType::NATIVE_INT, scalar_data_space);
+        auto plane_id = static_cast<int>(plane);
+        attribute.write(H5::PredType::NATIVE_INT, &plane_id);
+
+        attribute = dataset.createAttribute("plane_coordinate", H5::PredType::NATIVE_DOUBLE, scalar_data_space);
+        auto plane_coordinate = array.get_plane_coordinate();
+        attribute.write(H5::PredType::NATIVE_DOUBLE, &plane_coordinate);
+    }
 }

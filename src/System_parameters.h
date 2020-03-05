@@ -6,6 +6,7 @@
 
 struct Output_parameters {
     bool output3d = false;
+    bool output_xy = false;
 };
 
 struct System_parameters {

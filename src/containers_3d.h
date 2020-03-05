@@ -34,6 +34,10 @@ public:
         return data[n.y * n.z * i + n.z * j + k];
     }
 
+    inline auto get_dimensions() const {
+        return n;
+    }
+
     inline auto get_n1() const {
         return n.x;
     }
@@ -135,3 +139,6 @@ struct particle {
     double gamma = 1;
     double px = 0;
 };
+
+template <class T>
+array2d_t<T> calculate_xy_slice(const array3d_t<T> & array, double z0);

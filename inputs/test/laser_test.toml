@@ -19,4 +19,5 @@ zsigma = 4
 x0 = 5
 
 [output]
-fields_3d = yes
+fields_3d = true
+fields_xy = true
