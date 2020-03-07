@@ -83,8 +83,16 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 void System_3d::solve_wakefield() {
     int particle_number = particles.size();
 
+    bool stop_flag = false;
+    const double THRESHOLD_B = 100;
+
     for (int i = 0; i < n.x; i++) {
-        std::cout << "Slice " << i << std::endl;
+        if (stop_flag) {
+            out << "Stop condition encountered, stopping the simulation" << std::endl;
+            break;
+        }
+
+        out << "Slice " << i << std::endl;
 
         // psi_source deposition
         #pragma omp parallel for
@@ -108,6 +116,7 @@ void System_3d::solve_wakefield() {
                 psi(i, j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
             }
         }
+        increase_minimum(psi, i, psi_threshold - 1);
 
         // calculate initial gamma, px
         #pragma omp parallel for
@@ -119,6 +128,7 @@ void System_3d::solve_wakefield() {
                     / (1 + psi_particle);
             p.px = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle - (1 + psi_particle) * (1 + psi_particle))
                     / (1 + psi_particle);
+            assert(p.gamma >= 1.0);
         }
 
         // initial jx, rho deposition
@@ -153,6 +163,7 @@ void System_3d::solve_wakefield() {
         }
 
         for (int iteration = 0; iteration < magnetic_field_iterations; iteration++) {
+
             // advance momenta
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
@@ -206,6 +217,7 @@ void System_3d::solve_wakefield() {
                     psi_middle(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
                 }
             }
+            increase_minimum(psi_middle, psi_threshold - 1);
 
             // deposit jy, jz
             #pragma omp parallel for
@@ -243,6 +255,7 @@ void System_3d::solve_wakefield() {
                 p.gamma = 0.5 * (1 + p_squared + a_particle +
                         (1 + psi_particle) * (1 + psi_particle)) / (1 + psi_particle);
                 p.px = 0.5 * (1 + p_squared + a_particle - (1 + psi_particle) * (1 + psi_particle)) / (1 + psi_particle);
+                assert(p.gamma >= 1.0);
             }
 
             // new jx, rho deposition
@@ -266,18 +279,21 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z-1; k++) {
-                    fourier.in[n.z * j + k] = -by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
                 }
-                fourier.in[n.z * j + (n.z-1)] = -by(i, j, n.z-1) - (jx(i, j, 0) - jx(i, j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
+                fourier.in[n.z * j + (n.z-1)] = - magnetic_field_D * by(i, j, n.z-1) - (jx(i, j, 0) - jx(i, j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
             }
 
             // new guess for B_y
-            solve_poisson_equation(1.0);
+            solve_poisson_equation(magnetic_field_D);
 
-            #pragma omp parallel for
+            #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     by(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(by(i, j, k)) > THRESHOLD_B) {
+                        stop_flag = true;
+                    }
                 }
             }
 
@@ -285,23 +301,31 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y-1; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fourier.in[n.z * j + k] = -bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
                 }
             }
             #pragma omp parallel for
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * (n.y-1) + k] = -bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
+                fourier.in[n.z * (n.y-1) + k] = - magnetic_field_D * bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
             }
 
             // new guess for B_z
-            solve_poisson_equation(1.0);
+            solve_poisson_equation(magnetic_field_D);
 
-            #pragma omp parallel for
+            #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
                     bz(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(bz(i, j, k)) > THRESHOLD_B) {
+                        stop_flag = true;
+                    }
                 }
             }
+
+            if (stop_flag) {
+                break;
+            }
+
         }
 
         #pragma omp parallel for
@@ -514,17 +538,21 @@ double System_3d::array_zder_to_particle(double y, double z, const array3d & arr
 }
 
 void System_3d::normalize_coordinates(double & y, double & z) {
+    y = fmod(y, l.y);
     if (y < 0) {
         y += l.y;
-    } else if (y >= l.y) {
-        y -= l.y;
     }
 
+    assert(y >= 0);
+    assert(y < l.y);
+
+    z = fmod(z, l.z);
     if (z < 0) {
         z += l.z;
-    } else if (z >= l.z) {
-        z -= l.z;
     }
+    
+    assert(z >= 0);
+    assert(z < l.z);
 }
 
 void System_3d::solve_poisson_equation(double D) {
@@ -572,6 +600,31 @@ void System_3d::init_a_sqr(std::function<double(double, double, double)> func) {
                 double y = j * d.y;
                 double z = k * d.z;
                 a_sqr(i, j, k) = func(x, y, z);
+            }
+        }
+    }
+}
+
+void System_3d::increase_minimum(array3d & array, int slice, double value) const {
+    auto n = array.get_dimensions();
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            if (array(slice, j, k) < value) {
+                array(slice, j, k) = value;
+            }
+        }
+    }
+}
+
+void System_3d::increase_minimum(array2d & array, double value) const {
+    auto n1 = array.get_n1();
+    auto n2 = array.get_n2();
+    #pragma omp parallel for
+    for (int j = 0; j < n1; j++) {
+        for (int k = 0; k < n2; k++) {
+            if (array(j, k) < value) {
+                array(j, k) = value;
             }
         }
     }

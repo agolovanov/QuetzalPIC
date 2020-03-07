@@ -24,12 +24,17 @@ private:
     void solve_poisson_equation(double D=0.0);
     void init_particles(int ppcy, int ppcz);
     void init_a_sqr(std::function<double(double, double, double)> func);
+    void increase_minimum(array3d & array, int slice, double value) const;
+    void increase_minimum(array2d & array, double value) const;
 
     ivector3d n;
     vector3d l;
     vector3d d;
 
     int magnetic_field_iterations;
+    double psi_threshold = 1e-4;
+
+    double magnetic_field_D = 10.0;
 
     std::function<double(double, double, double)> rhobunch;
 
