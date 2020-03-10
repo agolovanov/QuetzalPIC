@@ -87,10 +87,6 @@ void System_3d::solve_wakefield() {
     const double THRESHOLD_B = 100;
 
     for (int i = 0; i < n.x; i++) {
-        if (stop_flag) {
-            out << "Stop condition encountered, stopping the simulation" << std::endl;
-            break;
-        }
 
         out << "Slice " << i << std::endl;
 
@@ -294,6 +290,9 @@ void System_3d::solve_wakefield() {
                     if (fabs(by(i, j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
+                    if (std::isnan(by(i, j, k))) {
+                        stop_flag = true;
+                    }
                 }
             }
 
@@ -319,6 +318,9 @@ void System_3d::solve_wakefield() {
                     if (fabs(bz(i, j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
+                    if (std::isnan(bz(i, j, k))) {
+                        stop_flag = true;
+                    }
                 }
             }
 
@@ -326,6 +328,11 @@ void System_3d::solve_wakefield() {
                 break;
             }
 
+        }
+
+        if (stop_flag) {
+            out << "Stop condition encountered, stopping the simulation" << std::endl;
+            break;
         }
 
         #pragma omp parallel for
