@@ -24,7 +24,6 @@ std::string memory_formatter(long bytes) {
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
-    d(params.d),
     magnetic_field_iterations(params.magnetic_field_iterations),
     rhobunch(params.rho),
     output_parameters(params.output_parameters),
@@ -40,11 +39,18 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
         throw std::invalid_argument("ppcz should be positive");
     }
 
-    n.x = static_cast<int>(l.x / d.x);
-    n.y = static_cast<int>(l.y / d.y);
-    n.z = static_cast<int>(l.z / d.z);
+    n.x = static_cast<int>(l.x / params.d.x);
+    n.y = static_cast<int>(l.y / params.d.y);
+    n.z = static_cast<int>(l.z / params.d.z);
 
-    out << fmt::format("Space dimensions [{}, {}, {}]", n.x, n.y, n.z) << std::endl;
+    out << fmt::format("Spatial dimensions:  [{}, {}, {}]", n.x, n.y, n.z) << std::endl;
+
+    d.x = l.x / n.x;
+    d.y = l.y / n.y;
+    d.z = l.z / n.z;
+
+    out << fmt::format("Steps:               [{}, {}, {}]", d.x, d.y, d.z) << std::endl;
+    out << fmt::format("Simulation box size: [{}, {}, {}]", l.x, l.y, l.z) << std::endl;
 
     const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
@@ -427,6 +433,7 @@ void System_3d::output() const {
 void System_3d::deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {
     int j1 = (int) floor(y / d.y - yshift);
     int j2 = (j1 + 1) % n.y;
+
     double y_frac = (y / d.y - yshift) - j1;
     if (j1 < 0) {
         j1 += n.y;
@@ -438,6 +445,11 @@ void System_3d::deposit(double y, double z, double value, array3d & array, int s
     if (k1 < 0) {
         k1 += n.z;
     }
+
+    assert((j1 >= 0) && (j1 < n.y));
+    assert((j2 >= 0) && (j2 < n.y));
+    assert((k1 >= 0) && (k1 < n.z));
+    assert((k2 >= 0) && (k2 < n.z));
 
     #pragma omp atomic update
     array(slice, j1, k1) += value * (1 - y_frac) * (1 - z_frac);
@@ -457,6 +469,11 @@ void System_3d::deposit(double y, double z, double value, double * array) {
     int k1 = (int) (z / d.z);
     int k2 = (k1 + 1) % n.z;
     double z_frac = (z / d.z) - k1;
+
+    assert((j1 >= 0) && (j1 < n.y));
+    assert((j2 >= 0) && (j2 < n.y));
+    assert((k1 >= 0) && (k1 < n.z));
+    assert((k2 >= 0) && (k2 < n.z));
 
     #pragma omp atomic update
     array[n.z * j1 + k1] += value * (1 - y_frac) * (1 - z_frac);
