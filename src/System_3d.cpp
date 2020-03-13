@@ -19,7 +19,7 @@ std::string memory_formatter(long bytes) {
         res /= 1024;
         index++;
     }
-    return fmt::format("{:.1f} {}", res, prefixes[index]);
+    return fmt::format("{:5.1f} {}", res, prefixes[index]);
 }
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
@@ -52,16 +52,21 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     out << fmt::format("Steps:               [{}, {}, {}]", d.x, d.y, d.z) << std::endl;
     out << fmt::format("Simulation box size: [{}, {}, {}]", l.x, l.y, l.z) << std::endl;
 
+    const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
     const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
-    const long total_memory = array2d_memory + array3d_memory + particle_memory;
+    const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
 
     out << "Expected RAM usage:\n";
-    out << fmt::format("Total: {}, 2D arrays: {}, 3D arrays: {}, particles: {}", 
-                       memory_formatter(total_memory), memory_formatter(array2d_memory),
-                       memory_formatter(array3d_memory), memory_formatter(particle_memory)) << std::endl;
+    out << fmt::format("3D arrays: {}\n", memory_formatter(array3d_memory))
+        << fmt::format("2D arrays: {}\n", memory_formatter(array2d_memory))
+        << fmt::format("Fourier:   {}\n", memory_formatter(fourier_memory))
+        << fmt::format("Particles: {}\n", memory_formatter(particle_memory))
+        << fmt::format("Total:     {}", memory_formatter(total_memory)) << std::endl;
 
+    std::cout << "----------------------------------------" << std::endl;
+    
     init_particles(params.ppcy, params.ppcz);
 
     fourier = Fourier2d(n.y, n.z);
