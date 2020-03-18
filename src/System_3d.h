@@ -48,7 +48,6 @@ private:
     array2d djz_dxi;
 
     array3d psi;
-    array3d psi_source;
     array3d a_sqr;
     array3d jx;
     array3d jy;

@@ -54,7 +54,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
+    const long array3d_memory = 11l * sizeof(double) * n.x * n.y * n.z;
     const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
     const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
 
@@ -76,7 +76,6 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     djz_dxi = array2d({n.y, n.z});
 
     psi = array3d(n, d);
-    psi_source = array3d(n, d);
     a_sqr = array3d(n, d);
     jx = array3d(n, d);
     jy = array3d(n, d, {-0.5 * d.x, 0.5 * d.y, 0});
@@ -101,18 +100,25 @@ void System_3d::solve_wakefield() {
 
         out << "Slice " << i << std::endl;
 
-        // psi_source deposition
+        #pragma omp parallel for
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                fourier.in[n.z * j + k] = 0.0;
+            }
+        }
+
+        // psi source deposition
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = particles[pi];
-            deposit(p.y, p.z, -p.n, psi_source, i);
+            deposit(p.y, p.z, -p.n, fourier.in);
         }
 
         // cacluate psi
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * j + k] = psi_source(i, j, k) - 1.0;
+                fourier.in[n.z * j + k] -= 1.0;
             }
         }
         solve_poisson_equation();
@@ -404,7 +410,6 @@ void System_3d::output() const {
         H5::H5File fields_file("Fields.h5", H5F_ACC_TRUNC);
 
         write_array(a_sqr, "aSqr", fields_file);
-        write_array(psi_source, "jx_minus_rho", fields_file);
         write_array(rho, "rho", fields_file);
         write_array(jx, "jx", fields_file);
         write_array(jy, "jy", fields_file);
