@@ -53,6 +53,7 @@ private:
     array3d jy;
     array3d jz;
     array3d rho;
+    array3d susceptibility;
     array3d ex;
     array3d ey;
     array3d ez;

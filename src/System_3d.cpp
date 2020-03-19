@@ -54,7 +54,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 11l * sizeof(double) * n.x * n.y * n.z;
+    const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
     const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
     const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
 
@@ -81,6 +81,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     jy = array3d(n, d, {-0.5 * d.x, 0.5 * d.y, 0});
     jz = array3d(n, d, {-0.5 * d.x, 0, 0.5 * d.z});
     rho = array3d(n, d);
+    susceptibility = array3d(n, d);
     ex = array3d(n, d, {-0.5 * d.x, 0, 0});
     ey = array3d(n, d, {0, 0.5 * d.y, 0});
     ez = array3d(n, d, {0, 0, 0.5 * d.z});
@@ -150,6 +151,7 @@ void System_3d::solve_wakefield() {
             for (int k = 0; k < n.z; k++) {
                 jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
                 rho(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                susceptibility(i, j, k) = 0.0;
             }
         }
 
@@ -159,6 +161,7 @@ void System_3d::solve_wakefield() {
             double vx = p.px / p.gamma;
             deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
             deposit(p.y, p.z, p.n / (1 - vx), rho, i);
+            deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
         }
 
         if (i > 0) {
@@ -277,6 +280,7 @@ void System_3d::solve_wakefield() {
                 for (int k = 0; k < n.z; k++) {
                     jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
                     rho(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                    susceptibility(i, j, k) = 0.0;
                 }
             }
 
@@ -286,6 +290,7 @@ void System_3d::solve_wakefield() {
                 double vx = p.px / p.gamma;
                 deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
                 deposit(p.y, p.z, p.n / (1 - vx), rho, i);
+                deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
             }
 
             // new source for B_y
@@ -412,6 +417,7 @@ void System_3d::output() const {
         write_array(a_sqr, "aSqr", fields_file);
         write_array(rho, "rho", fields_file);
         write_array(jx, "jx", fields_file);
+        write_array(susceptibility, "susceptibility", fields_file);
         write_array(jy, "jy", fields_file);
         write_array(jz, "jz", fields_file);
         write_array(psi, "psi", fields_file);
@@ -428,6 +434,7 @@ void System_3d::output() const {
         write_array(calculate_xy_slice(a_sqr, z0), "aSqr", fields_xy_file);
         write_array(calculate_xy_slice(rho, z0), "rho", fields_xy_file);
         write_array(calculate_xy_slice(jx, z0), "jx", fields_xy_file);
+        write_array(calculate_xy_slice(susceptibility, z0), "susceptibility", fields_xy_file);
         write_array(calculate_xy_slice(jy, z0), "jy", fields_xy_file);
         write_array(calculate_xy_slice(jz, z0), "jz", fields_xy_file);
         write_array(calculate_xy_slice(psi, z0), "psi", fields_xy_file);
