@@ -1,0 +1,23 @@
+lx = 60
+ly = 20
+lz = 20
+dx = 0.1
+dy = 0.1
+dz = 0.1
+
+ppcy = 1
+ppcz = 1
+
+magnetic_field_iterations = 5
+
+[laser]
+shape = "gaussian"
+a0 = 0.01
+xsigma = 4
+ysigma = 4
+zsigma = 4
+x0 = 5
+
+[output]
+fields_3d = true
+fields_xy = true
