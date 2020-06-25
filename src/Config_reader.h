@@ -29,5 +29,6 @@ private:
     template <class T>
     T read_value(const std::string & name, T default_value, std::shared_ptr<cpptoml::table> table);
     void init_laser();
+    void init_bunch();
     void init_output_parameters();
 };

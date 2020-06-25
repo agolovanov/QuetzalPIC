@@ -36,6 +36,8 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
 
     init_laser();
 
+    init_bunch();
+
     out << std::endl;
 
     init_output_parameters();
@@ -100,6 +102,35 @@ void Config_reader::init_laser() {
 
     } else {
         out << "No [laser] block in config" << std::endl;
+    }
+}
+
+void Config_reader::init_bunch() {
+    if (config->contains("bunch")) {
+        out << "Parsing [bunch] ..." << std::endl;
+        auto bunch_table = config->get_table("bunch");
+
+        const auto shape = read_value<std::string>("shape", bunch_table);
+        if (shape == "gaussian") {
+            const double rho0 = read_value<double>("rho0", bunch_table);
+            const double xsigma = read_value<double>("xsigma", bunch_table);
+            const double ysigma = read_value<double>("ysigma", bunch_table);
+            const double zsigma = read_value<double>("zsigma", bunch_table);
+            const double x0 = read_value<double>("x0", xsigma, bunch_table);
+            const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
+            const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
+            
+            vector3d width{xsigma, ysigma, zsigma};
+            // conversion from full width at 1/e^2 to Gauss paramters
+            width /= sqrt(8.0);
+            
+            params.rho = gaussian(rho0, width, {x0, y0, z0});
+        } else {
+            throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\".", shape));
+        }
+
+    } else {
+        out << "No [bunch] block in config" << std::endl;
     }
 }
 
