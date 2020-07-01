@@ -16,8 +16,9 @@ struct System_parameters {
     int ppcz = 1;
     int magnetic_field_iterations = 1;
 
-    std::function<double(double, double, double)> a_sqr = constant(0.0);
-    std::function<double(double, double, double)> rho = constant(0.0);
+    std::function<double(double, double, double)> a_sqr = constant3d(0.0);
+    std::function<double(double, double, double)> rho = constant3d(0.0);
+    std::function<double(double, double)> plasma_profile = constant2d(-1.0);
 
     Output_parameters output_parameters;
 };

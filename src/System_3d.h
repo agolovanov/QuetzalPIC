@@ -15,6 +15,7 @@ public:
     void output() const;
 private:
     void deposit(double y, double z, double value, array3d & array, int slice, double yshift=0.0, double zshift=0.0);
+    void deposit(double y, double z, double value, array2d & array, double yshift=0.0, double zshift=0.0);
     void deposit(double y, double z, double value, double * array);
     double array_to_particle(double y, double z, const array3d & array, int slice, double yshift=0.0, double zshift=0.0) const;
     double array_to_particle(double y, double z, const array2d & array) const;
@@ -22,7 +23,7 @@ private:
     double array_zder_to_particle(double y, double z, const array3d & array, int slice) const;
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
-    void init_particles(int ppcy, int ppcz);
+    void init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
     void init_a_sqr(std::function<double(double, double, double)> func);
     void increase_minimum(array3d & array, int slice, double value) const;
     void increase_minimum(array2d & array, double value) const;
@@ -46,6 +47,7 @@ private:
     array2d psi_middle;
     array2d djy_dxi;
     array2d djz_dxi;
+    array2d rho_ion;
 
     array3d psi;
     array3d a_sqr;

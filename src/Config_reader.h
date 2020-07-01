@@ -31,4 +31,5 @@ private:
     void init_laser();
     void init_bunch();
     void init_output_parameters();
+    void init_plasma_profile();
 };

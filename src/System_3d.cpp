@@ -53,7 +53,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     out << fmt::format("Simulation box size: [{}, {}, {}]", l.x, l.y, l.z) << std::endl;
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
-    const long array2d_memory = 3l * sizeof(double) * n.y * n.z;
+    const long array2d_memory = 4l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
     const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
     const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
@@ -67,13 +67,14 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     std::cout << "----------------------------------------" << std::endl;
     
-    init_particles(params.ppcy, params.ppcz);
+    init_particles(params.ppcy, params.ppcz, params.plasma_profile);
 
     fourier = Fourier2d(n.y, n.z);
 
     psi_middle = array2d({n.y, n.z});
     djy_dxi = array2d({n.y, n.z});
     djz_dxi = array2d({n.y, n.z});
+    rho_ion = array2d({n.y, n.z}, {d.y, d.z});
 
     psi = array3d(n, d);
     a_sqr = array3d(n, d);
@@ -93,6 +94,14 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
 void System_3d::solve_wakefield() {
     int particle_number = particles.size();
+
+    // rho_ion deposition
+    #pragma omp parallel for
+    for (int pi = 0; pi < particle_number; pi++) {
+        auto & p = particles[pi];
+        deposit(p.y, p.z, -p.n, rho_ion);
+    }
+
 
     bool stop_flag = false;
     const double THRESHOLD_B = 100;
@@ -119,7 +128,7 @@ void System_3d::solve_wakefield() {
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * j + k] -= 1.0;
+                fourier.in[n.z * j + k] -= rho_ion(j, k);
             }
         }
         solve_poisson_equation();
@@ -214,7 +223,7 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fourier.in[n.z * j + k] = -1.0; // rho_ion
+                    fourier.in[n.z * j + k] = - rho_ion(j, k);
                 }
             }
 
@@ -478,6 +487,37 @@ void System_3d::deposit(double y, double z, double value, array3d & array, int s
     array(slice, j2, k2) += value * y_frac * z_frac;
 }
 
+void System_3d::deposit(double y, double z, double value, array2d & array, double yshift, double zshift) {
+    int j1 = (int) floor(y / d.y - yshift);
+    int j2 = (j1 + 1) % n.y;
+
+    double y_frac = (y / d.y - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+
+    int k1 = (int) floor(z / d.z - zshift);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z / d.z - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+
+    assert((j1 >= 0) && (j1 < n.y));
+    assert((j2 >= 0) && (j2 < n.y));
+    assert((k1 >= 0) && (k1 < n.z));
+    assert((k2 >= 0) && (k2 < n.z));
+
+    #pragma omp atomic update
+    array(j1, k1) += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
+    array(j2, k1) += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
+    array(j1, k2) += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
+    array(j2, k2) += value * y_frac * z_frac;
+}
+
 void System_3d::deposit(double y, double z, double value, double * array) {
     int j1 = (int) (y / d.y);
     int j2 = (j1 + 1) % n.y;
@@ -618,7 +658,7 @@ void System_3d::solve_poisson_equation(double D) {
     fourier.backward_transform();
 }
 
-void System_3d::init_particles(int ppcy, int ppcz) {
+void System_3d::init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
     assert(ppcy > 0);
     assert(ppcz > 0);
     particles = std::vector<particle>(n.y * n.z * ppcy * ppcz);
@@ -626,9 +666,12 @@ void System_3d::init_particles(int ppcy, int ppcz) {
     for (int i = 0; i < ppcy * n.y; i++) {
         for (int j = 0; j < ppcz * n.z; j++) {
             int index = ppcz * n.z * i + j;
-            particles[index].y = (i + 0.5) * d.y / ppcy;
-            particles[index].z = (j + 0.5) * d.z / ppcz;
-            particles[index].n = -1.0 / ppcy / ppcz;
+            const double y = (i + 0.5) * d.y / ppcy;
+            const double z = (j + 0.5) * d.z / ppcz;
+            double value = plasma_profile(y, z);
+            particles[index].y = y;
+            particles[index].z = z;
+            particles[index].n = value / ppcy / ppcz;
         }
     }
 }

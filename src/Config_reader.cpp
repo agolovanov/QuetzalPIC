@@ -36,7 +36,13 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
 
     init_laser();
 
+    out << std::endl;
+
     init_bunch();
+
+    out << std::endl;
+
+    init_plasma_profile();
 
     out << std::endl;
 
@@ -95,7 +101,7 @@ void Config_reader::init_laser() {
             // conversion from full width at 1/e^2 to Gauss paramters
             width /= sqrt(8.0);
             
-            params.a_sqr = gaussian(0.5 * a0 * a0, width, {x0, y0, z0});
+            params.a_sqr = gaussian3d(0.5 * a0 * a0, width, {x0, y0, z0});
         } else {
             throw Config_exception(fmt::format("Laser shape \"{}\" is not supported, use \"gaussian\".", shape));
         }
@@ -124,7 +130,7 @@ void Config_reader::init_bunch() {
             // conversion from full width at 1/e^2 to Gauss paramters
             width /= sqrt(8.0);
             
-            params.rho = gaussian(rho0, width, {x0, y0, z0});
+            params.rho = gaussian3d(rho0, width, {x0, y0, z0});
         } else {
             throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\".", shape));
         }
@@ -148,4 +154,28 @@ void Config_reader::init_output_parameters() {
     }
 
     params.output_parameters = output_parameters;
+}
+
+void Config_reader::init_plasma_profile() {
+    if (config->contains("plasma")) {
+        out << "Parsing [plasma] ..." << std::endl;
+        auto plasma_table = config->get_table("plasma");
+
+        const auto profile = read_value<std::string>("profile", plasma_table);
+        if (profile == "powerlaw") {
+            const double power = read_value<double>("power", plasma_table);
+            const double radius = read_value<double>("radius", plasma_table);
+            const double min_factor = read_value<double>("min_factor", 0.0, plasma_table);
+            const double max_factor = read_value<double>("max_factor", 1e10, plasma_table);
+            const double y0 = read_value<double>("y0", 0.5 * params.l.y, plasma_table);
+            const double z0 = read_value<double>("z0", 0.5 * params.l.z, plasma_table);
+            
+            params.plasma_profile = powerlaw2d(power, radius, y0, z0, min_factor, max_factor, -1.0);
+        } else {
+            throw Config_exception(fmt::format("Plasma profile \"{}\" is not supported, use \"powerlaw\".", profile));
+        }
+
+    } else {
+        out << "No [plasma] block in config; uniform plasma will be used";
+    }
 }
