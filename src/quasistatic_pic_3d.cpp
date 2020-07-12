@@ -58,8 +58,6 @@ int main(int argc, char const *argv[]) {
 
     system.solve_wakefield();
 
-    system.output();
-
     auto t_end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(t_end - t_begin).count();
 

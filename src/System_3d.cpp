@@ -53,8 +53,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     out << fmt::format("Simulation box size: [{}, {}, {}]", l.x, l.y, l.z) << std::endl;
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
-    const long array2d_memory = 4l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 12l * sizeof(double) * n.x * n.y * n.z;
+    const long array2d_memory = 17l * sizeof(double) * n.y * n.z;
+    const long array3d_memory = 2l * sizeof(double) * n.x * n.y * n.z;
     const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
     const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
 
@@ -71,28 +71,45 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     fourier = Fourier2d(n.y, n.z);
 
-    psi_middle = array2d({n.y, n.z});
-    djy_dxi = array2d({n.y, n.z});
-    djz_dxi = array2d({n.y, n.z});
-    rho_ion = array2d({n.y, n.z}, {d.y, d.z});
+    ivector2d size_yz{n.y, n.z};
+    
+    psi_middle = array2d(size_yz);
+    djy_dxi = array2d(size_yz);
+    djz_dxi = array2d(size_yz);
+    rho_ion = array2d(size_yz, {d.y, d.z});
 
-    psi = array3d(n, d);
     a_sqr = array3d(n, d);
-    jx = array3d(n, d);
-    jy = array3d(n, d, {-0.5 * d.x, 0.5 * d.y, 0});
-    jz = array3d(n, d, {-0.5 * d.x, 0, 0.5 * d.z});
-    rho = array3d(n, d);
     susceptibility = array3d(n, d);
-    ex = array3d(n, d, {-0.5 * d.x, 0, 0});
-    ey = array3d(n, d, {0, 0.5 * d.y, 0});
-    ez = array3d(n, d, {0, 0, 0.5 * d.z});
-    by = array3d(n, d, {0, 0, 0.5 * d.z});
-    bz = array3d(n, d, {0, 0.5 * d.y, 0});
+
+    psi = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
+    psi_prev = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
+    rho = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
+    jx = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
+    jy = array2d(size_yz, d, {-0.5 * d.x, 0.5 * d.y, 0}, Plane::YZ);
+    jz = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
+    jy_next = array2d(size_yz, d, {-0.5 * d.x, 0.5 * d.y, 0}, Plane::YZ);
+    jz_next = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
+    by = array2d(size_yz, d, {0, 0, 0.5 * d.z}, Plane::YZ);
+    bz = array2d(size_yz, d, {0, 0.5 * d.y, 0}, Plane::YZ);
+    ex = array2d(size_yz, d, {-0.5 * d.x, 0, 0}, Plane::YZ);
+    ey = array2d(size_yz, d, {0, 0.5 * d.y, 0}, Plane::YZ);
+    ez = array2d(size_yz, d, {0, 0, 0.5 * d.z}, Plane::YZ);
 
     init_a_sqr(params.a_sqr);
 }
 
 void System_3d::solve_wakefield() {
+    H5::H5File fields_file;
+    if (output_parameters.output3d) {
+        fields_file = H5::H5File("Fields.h5", H5F_ACC_TRUNC);
+    }
+    H5::H5File fields_xy_file;
+    if (output_parameters.output_xy) {
+        fields_xy_file = H5::H5File("Fields_xy.h5", H5F_ACC_TRUNC);
+    }
+
+    initialize_output(fields_file, fields_xy_file);
+
     int particle_number = particles.size();
 
     // rho_ion deposition
@@ -109,6 +126,13 @@ void System_3d::solve_wakefield() {
     for (int i = 0; i < n.x; i++) {
 
         out << "Slice " << i << std::endl;
+
+        #pragma omp parallel for
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                psi_prev(j, k) = psi(j, k);
+            }
+        }
 
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
@@ -136,17 +160,17 @@ void System_3d::solve_wakefield() {
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                psi(i, j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
+                psi(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
             }
         }
-        increase_minimum(psi, i, psi_threshold - 1);
+        increase_minimum(psi, psi_threshold - 1);
 
         // calculate initial gamma, px
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = particles[pi];
             double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
-            double psi_particle = array_to_particle(p.y, p.z, psi, i);
+            double psi_particle = array_to_particle(p.y, p.z, psi);
             p.gamma = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle + (1 + psi_particle) * (1 + psi_particle))
                     / (1 + psi_particle);
             p.px = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle - (1 + psi_particle) * (1 + psi_particle))
@@ -158,8 +182,8 @@ void System_3d::solve_wakefield() {
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
-                rho(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                jx(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                rho(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
                 susceptibility(i, j, k) = 0.0;
             }
         }
@@ -168,19 +192,9 @@ void System_3d::solve_wakefield() {
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = particles[pi];
             double vx = p.px / p.gamma;
-            deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
-            deposit(p.y, p.z, p.n / (1 - vx), rho, i);
+            deposit(p.y, p.z, p.n * vx / (1 - vx), jx);
+            deposit(p.y, p.z, p.n / (1 - vx), rho);
             deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
-        }
-
-        if (i > 0) {
-            #pragma omp parallel for
-            for (int j = 0; j < n.y; j++) {
-                for (int k = 0; k < n.z; k++) {
-                    by(i, j, k) = by(i-1, j, k);
-                    bz(i, j, k) = bz(i-1, j, k);
-                }
-            }
         }
 
         if (i == n.x - 1) {
@@ -193,13 +207,13 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
-                double psi_particle = array_to_particle(p.y, p.z, psi, i);
+                double psi_particle = array_to_particle(p.y, p.z, psi);
                 double da_dy_particle = array_yder_to_particle(p.y, p.z, a_sqr, i);
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
-                double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi, i);
-                double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi, i);
-                double by_particle = array_to_particle(p.y, p.z, by, i, 0.0, 0.5);
-                double bz_particle = array_to_particle(p.y, p.z, bz, i, 0.5, 0.0);
+                double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi);
+                double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi);
+                double by_particle = array_to_particle(p.y, p.z, by, 0.0, 0.5);
+                double bz_particle = array_to_particle(p.y, p.z, bz, 0.5, 0.0);
 
                 p.py_next = p.py - d.x * 0.5 * da_dy_particle / (1 + psi_particle);
                 p.py_next += d.x * p.gamma * dpsi_dy_particle / (1 + psi_particle);
@@ -213,7 +227,7 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
-                double psi_particle = array_to_particle(p.y, p.z, psi, i);
+                double psi_particle = array_to_particle(p.y, p.z, psi);
                 p.y_middle = p.y + 0.5 * d.x * p.py_next / (1 + psi_particle);
                 p.z_middle = p.z + 0.5 * d.x * p.pz_next / (1 + psi_particle);
                 normalize_coordinates(p.y_middle, p.z_middle);
@@ -248,8 +262,8 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++){
-                    jy(i+1, j, k) = 0.0;
-                    jz(i+1, j, k) = 0.0;
+                    jy_next(j, k) = 0.0;
+                    jz_next(j, k) = 0.0;
                 }
             }
 
@@ -257,16 +271,16 @@ void System_3d::solve_wakefield() {
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
                 double psi_particle = array_to_particle(p.y_middle, p.z_middle, psi_middle);
-                deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy, i+1, 0.5, 0.0);
-                deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz, i+1, 0.0, 0.5);
+                deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy_next, 0.5, 0.0);
+                deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz_next, 0.0, 0.5);
             }
 
             // calculate new djy_dxi, djz_dxi
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    djy_dxi(j, k) = (jy(i, j, k) - jy(i+1, j, k)) / d.x;
-                    djz_dxi(j, k) = (jz(i, j, k) - jz(i+1, j, k)) / d.x;
+                    djy_dxi(j, k) = (jy(j, k) - jy_next(j, k)) / d.x;
+                    djz_dxi(j, k) = (jz(j, k) - jz_next(j, k)) / d.x;
                 }
             }
 
@@ -275,7 +289,7 @@ void System_3d::solve_wakefield() {
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
                 double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
-                double psi_particle = array_to_particle(p.y, p.z, psi, i);
+                double psi_particle = array_to_particle(p.y, p.z, psi);
                 double p_squared = 0.25 * (p.py + p.py_next) * (p.py + p.py_next) + 0.25 * (p.pz + p.pz_next) * (p.pz + p.pz_next);
                 p.gamma = 0.5 * (1 + p_squared + a_particle +
                         (1 + psi_particle) * (1 + psi_particle)) / (1 + psi_particle);
@@ -287,8 +301,8 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    jx(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
-                    rho(i, j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                    jx(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                    rho(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
                     susceptibility(i, j, k) = 0.0;
                 }
             }
@@ -297,8 +311,8 @@ void System_3d::solve_wakefield() {
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
                 double vx = p.px / p.gamma;
-                deposit(p.y, p.z, p.n * vx / (1 - vx), jx, i);
-                deposit(p.y, p.z, p.n / (1 - vx), rho, i);
+                deposit(p.y, p.z, p.n * vx / (1 - vx), jx);
+                deposit(p.y, p.z, p.n / (1 - vx), rho);
                 deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
             }
 
@@ -306,9 +320,9 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z-1; k++) {
-                    fourier.in[n.z * j + k] = - magnetic_field_D * by(i, j, k) - (jx(i, j, k+1) - jx(i, j, k)) / d.z + djz_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * by(j, k) - (jx(j, k+1) - jx(j, k)) / d.z + djz_dxi(j, k);
                 }
-                fourier.in[n.z * j + (n.z-1)] = - magnetic_field_D * by(i, j, n.z-1) - (jx(i, j, 0) - jx(i, j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
+                fourier.in[n.z * j + (n.z-1)] = - magnetic_field_D * by(j, n.z-1) - (jx(j, 0) - jx(j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
             }
 
             // new guess for B_y
@@ -317,11 +331,11 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    by(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
-                    if (fabs(by(i, j, k)) > THRESHOLD_B) {
+                    by(j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(by(j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
-                    if (std::isnan(by(i, j, k))) {
+                    if (std::isnan(by(j, k))) {
                         stop_flag = true;
                     }
                 }
@@ -331,12 +345,12 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int j = 0; j < n.y-1; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fourier.in[n.z * j + k] = - magnetic_field_D * bz(i, j, k) + (jx(i, j+1, k) - jx(i, j, k)) / d.y - djy_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * bz(j, k) + (jx(j+1, k) - jx(j, k)) / d.y - djy_dxi(j, k);
                 }
             }
             #pragma omp parallel for
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * (n.y-1) + k] = - magnetic_field_D * bz(i, 0, k) + (jx(i, 0, k) - jx(i, n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
+                fourier.in[n.z * (n.y-1) + k] = - magnetic_field_D * bz(0, k) + (jx(0, k) - jx(n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
             }
 
             // new guess for B_z
@@ -345,11 +359,11 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    bz(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
-                    if (fabs(bz(i, j, k)) > THRESHOLD_B) {
+                    bz(j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(bz(j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
-                    if (std::isnan(bz(i, j, k))) {
+                    if (std::isnan(bz(j, k))) {
                         stop_flag = true;
                     }
                 }
@@ -382,77 +396,124 @@ void System_3d::solve_wakefield() {
             p.z += d.x * p.pz / (1 + psi_particle);
             normalize_coordinates(p.y, p.z);
         }
-    }
 
-    // calculate ex
-    #pragma omp parallel for
-    for (int i = 1; i < n.x; i++) {
+        output_step(fields_file, fields_xy_file, i);
+
+        #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                ex(i, j, k) = (psi(i, j, k) - psi(i-1, j, k)) / d.x;
+                jy(j, k) = jy_next(j, k);
+                jz(j, k) = jz_next(j, k);
+            }
+        }
+    }
+
+    output_step(fields_file, fields_xy_file, n.x - 1);
+
+    output_full(fields_file, fields_xy_file);
+}
+
+void System_3d::initialize_output(H5::H5File & fields_file, H5::H5File & fields_xy_file) const {
+    if (output_parameters.output3d) {
+        initialize_slice_array(n, d, psi.get_origin_3d(), "psi", fields_file);
+        initialize_slice_array(n, d, rho.get_origin_3d(), "rho", fields_file);
+        initialize_slice_array(n, d, jx.get_origin_3d(), "jx", fields_file);
+        initialize_slice_array(n, d, jy.get_origin_3d(), "jy", fields_file);
+        initialize_slice_array(n, d, jz.get_origin_3d(), "jz", fields_file);
+        initialize_slice_array(n, d, by.get_origin_3d(), "by", fields_file);
+        initialize_slice_array(n, d, bz.get_origin_3d(), "bz", fields_file);
+        initialize_slice_array(n, d, ex.get_origin_3d(), "ex", fields_file);
+        initialize_slice_array(n, d, ey.get_origin_3d(), "ey", fields_file);
+        initialize_slice_array(n, d, ez.get_origin_3d(), "ez", fields_file);
+    }
+    if (output_parameters.output_xy) {
+        const ivector2d size = {n.x, n.y};
+        const vector2d steps = {d.x, d.y};
+        const double z0 = 0.5 * l.z;
+
+        initialize_slice_array(size, steps, {psi.get_origin_3d().x, psi.get_origin_3d().y}, Plane::XY, z0, "psi", fields_xy_file);
+        initialize_slice_array(size, steps, {rho.get_origin_3d().x, rho.get_origin_3d().y}, Plane::XY, z0, "rho", fields_xy_file);
+        initialize_slice_array(size, steps, {jx.get_origin_3d().x, jx.get_origin_3d().y}, Plane::XY, z0, "jx", fields_xy_file);
+        initialize_slice_array(size, steps, {jy.get_origin_3d().x, jy.get_origin_3d().y}, Plane::XY, z0, "jy", fields_xy_file);
+        initialize_slice_array(size, steps, {jz.get_origin_3d().x, jz.get_origin_3d().y}, Plane::XY, z0, "jz", fields_xy_file);
+        initialize_slice_array(size, steps, {by.get_origin_3d().x, by.get_origin_3d().y}, Plane::XY, z0, "by", fields_xy_file);
+        initialize_slice_array(size, steps, {bz.get_origin_3d().x, bz.get_origin_3d().y}, Plane::XY, z0, "bz", fields_xy_file);
+        initialize_slice_array(size, steps, {ex.get_origin_3d().x, ex.get_origin_3d().y}, Plane::XY, z0, "ex", fields_xy_file);
+        initialize_slice_array(size, steps, {ey.get_origin_3d().x, ey.get_origin_3d().y}, Plane::XY, z0, "ey", fields_xy_file);
+        initialize_slice_array(size, steps, {ez.get_origin_3d().x, ez.get_origin_3d().y}, Plane::XY, z0, "ez", fields_xy_file);
+    }
+}
+
+void System_3d::output_full(H5::H5File & fields_file, H5::H5File & fields_xy_file) const {
+    if (output_parameters.output3d) {
+        write_array(a_sqr, "aSqr", fields_file);
+        write_array(susceptibility, "susceptibility", fields_file);
+    }
+    if (output_parameters.output_xy) {
+        const double z0 = 0.5 * l.z;
+        write_array(calculate_xy_slice(a_sqr, z0), "aSqr", fields_xy_file);
+        write_array(calculate_xy_slice(susceptibility, z0), "susceptibility", fields_xy_file);
+    }
+}
+
+void System_3d::output_step(H5::H5File & fields_file, H5::H5File & fields_xy_file, int slice_index) {
+    const int i = slice_index;
+    
+    // calculate ex
+    if (i > 0) {
+        #pragma omp parallel for
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                ex(j, k) = (psi(j, k) - psi_prev(j, k)) / d.x;
             }
         }
     }
 
     // calculate ey
     #pragma omp parallel for
-    for (int i = 1; i < n.x; i++) {
-        for (int j = 0; j < n.y-1; j++) {
-            for (int k = 0; k < n.z; k++) {
-                ey(i, j, k) = -(psi(i, j+1, k) - psi(i, j, k)) / d.y + bz(i, j, k);
-            }
-        }
+    for (int j = 0; j < n.y-1; j++) {
         for (int k = 0; k < n.z; k++) {
-            ey(i, n.y-1, k) = -(psi(i, 0, k) - psi(i, n.y-1, k)) / d.y + bz(i, n.y-1, k);
+            ey(j, k) = -(psi(j+1, k) - psi(j, k)) / d.y + bz(j, k);
         }
     }
-
+    for (int k = 0; k < n.z; k++) {
+        ey(n.y-1, k) = -(psi(0, k) - psi(n.y-1, k)) / d.y + bz(n.y-1, k);
+    }
+    
     // calculate ez
     #pragma omp parallel for
-    for (int i = 1; i < n.x; i++) {
-        for (int j = 0; j < n.y; j++) {
-            for (int k = 0; k < n.z-1; k++) {
-                ez(i, j, k) = -(psi(i, j, k+1) - psi(i, j, k)) / d.z - by(i, j, k);
-            }
-            ez(i, j, n.z-1) = -(psi(i, j, 0) - psi(i, j, n.z-1)) / d.z - by(i, j, n.z-1);
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z-1; k++) {
+            ez(j, k) = -(psi(j, k+1) - psi(j, k)) / d.z - by(j, k);
         }
+        ez(j, n.z-1) = -(psi(j, 0) - psi(j, n.z-1)) / d.z - by(j, n.z-1);
     }
-}
-
-void System_3d::output() const {
+    
     if (output_parameters.output3d) {
-        H5::H5File fields_file("Fields.h5", H5F_ACC_TRUNC);
-
-        write_array(a_sqr, "aSqr", fields_file);
-        write_array(rho, "rho", fields_file);
-        write_array(jx, "jx", fields_file);
-        write_array(susceptibility, "susceptibility", fields_file);
-        write_array(jy, "jy", fields_file);
-        write_array(jz, "jz", fields_file);
-        write_array(psi, "psi", fields_file);
-        write_array(ex, "ex", fields_file);
-        write_array(ey, "ey", fields_file);
-        write_array(ez, "ez", fields_file);
-        write_array(by, "by", fields_file);
-        write_array(bz, "bz", fields_file);
+        write_slice(psi, slice_index, "psi", fields_file);
+        write_slice(rho, slice_index, "rho", fields_file);
+        write_slice(jx, slice_index, "jx", fields_file);
+        write_slice(jy, slice_index, "jy", fields_file);
+        write_slice(jz, slice_index, "jz", fields_file);
+        write_slice(by, slice_index, "by", fields_file);
+        write_slice(bz, slice_index, "bz", fields_file);
+        write_slice(ex, slice_index, "ex", fields_file);
+        write_slice(ey, slice_index, "ey", fields_file);
+        write_slice(ez, slice_index, "ez", fields_file);
     }
     if (output_parameters.output_xy) {
-        H5::H5File fields_xy_file("Fields_xy.h5", H5F_ACC_TRUNC);
-
         const double z0 = 0.5 * l.z;
-        write_array(calculate_xy_slice(a_sqr, z0), "aSqr", fields_xy_file);
-        write_array(calculate_xy_slice(rho, z0), "rho", fields_xy_file);
-        write_array(calculate_xy_slice(jx, z0), "jx", fields_xy_file);
-        write_array(calculate_xy_slice(susceptibility, z0), "susceptibility", fields_xy_file);
-        write_array(calculate_xy_slice(jy, z0), "jy", fields_xy_file);
-        write_array(calculate_xy_slice(jz, z0), "jz", fields_xy_file);
-        write_array(calculate_xy_slice(psi, z0), "psi", fields_xy_file);
-        write_array(calculate_xy_slice(ex, z0), "ex", fields_xy_file);
-        write_array(calculate_xy_slice(ey, z0), "ey", fields_xy_file);
-        write_array(calculate_xy_slice(ez, z0), "ez", fields_xy_file);
 
-        write_array(calculate_xy_slice(by, z0), "by", fields_xy_file);
-        write_array(calculate_xy_slice(bz, z0), "bz", fields_xy_file);
+        write_slice(calculate_y_slice(psi, z0), slice_index, "psi", fields_xy_file);
+        write_slice(calculate_y_slice(rho, z0), slice_index, "rho", fields_xy_file);
+        write_slice(calculate_y_slice(jx, z0), slice_index, "jx", fields_xy_file);
+        write_slice(calculate_y_slice(jy, z0), slice_index, "jy", fields_xy_file);
+        write_slice(calculate_y_slice(jz, z0), slice_index, "jz", fields_xy_file);
+        write_slice(calculate_y_slice(by, z0), slice_index, "by", fields_xy_file);
+        write_slice(calculate_y_slice(bz, z0), slice_index, "bz", fields_xy_file);
+        write_slice(calculate_y_slice(ex, z0), slice_index, "ex", fields_xy_file);
+        write_slice(calculate_y_slice(ey, z0), slice_index, "ey", fields_xy_file);
+        write_slice(calculate_y_slice(ez, z0), slice_index, "ez", fields_xy_file);
     }
 }
 
@@ -561,14 +622,20 @@ double System_3d::array_to_particle(double y, double z, const array3d & array, i
            array(slice, j1, k2) * (1 - y_frac) * z_frac + array(slice, j2, k2) * y_frac * z_frac;
 }
 
-double System_3d::array_to_particle(double y, double z, const array2d & array) const {
-    int j1 = (int) (y / d.y);
+double System_3d::array_to_particle(double y, double z, const array2d & array, double yshift, double zshift) const {
+    int j1 = (int) floor(y / d.y - yshift);
     int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y) - j1;
+    double y_frac = (y / d.y - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
 
-    int k1 = (int) (z / d.z);
+    int k1 = (int) floor(z / d.z - zshift);
     int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z) - k1;
+    double z_frac = (z / d.z - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
 
     return array(j1, k1) * (1 - y_frac) * (1 - z_frac) + array(j2, k1) * y_frac * (1 - z_frac) +
            array(j1, k2) * (1 - y_frac) * z_frac + array(j2, k2) * y_frac * z_frac;
@@ -613,6 +680,50 @@ double System_3d::array_zder_to_particle(double y, double z, const array3d & arr
     double der_y2_z1 = (array(slice, j2, k2) - array(slice, j2, k1)) / d.z;
     double der_y1_z2 = (array(slice, j1, k3) - array(slice, j1, k2)) / d.z;
     double der_y2_z2 = (array(slice, j2, k3) - array(slice, j2, k2)) / d.z;
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}
+
+double System_3d::array_yder_to_particle(double y, double z, const array2d & array) const {
+    int j1 = (int) floor(y / d.y - 0.5);
+    double y_frac = (y / d.y - 0.5) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+    int j2 = (j1 + 1) % n.y;
+    int j3 = (j1 + 2) % n.y;
+
+    int k1 = (int) (z / d.z);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z / d.z) - k1;
+
+    double der_y1_z1 = (array(j2, k1) - array(j1, k1)) / d.y;
+    double der_y2_z1 = (array(j3, k1) - array(j2, k1)) / d.y;
+    double der_y1_z2 = (array(j2, k2) - array(j1, k2)) / d.y;
+    double der_y2_z2 = (array(j3, k2) - array(j2, k2)) / d.y;
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}
+
+double System_3d::array_zder_to_particle(double y, double z, const array2d & array) const {
+    int j1 = (int) (y / d.y);
+    int j2 = (j1 + 1) % n.y;
+    double y_frac = (y / d.y) - j1;
+
+    int k1 = (int) floor(z / d.z - 0.5);
+    double z_frac = (z / d.z - 0.5) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+    int k2 = (k1 + 1) % n.z;
+    int k3 = (k1 + 2) % n.z;
+
+    double der_y1_z1 = (array(j1, k2) - array(j1, k1)) / d.z;
+    double der_y2_z1 = (array(j2, k2) - array(j2, k1)) / d.z;
+    double der_y1_z2 = (array(j1, k3) - array(j1, k2)) / d.z;
+    double der_y2_z2 = (array(j2, k3) - array(j2, k2)) / d.z;
 
     return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
            der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
