@@ -22,13 +22,10 @@ find_package(OpenMP REQUIRED)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
 
-add_executable(quasistatic_pic_2d src/quasistatic_pic_2d.cpp)
-add_executable(quasistatic_pic_3d src/quasistatic_pic_3d.cpp src/System_3d.cpp src/Fourier2d.cpp src/output.cpp src/Config_reader.cpp src/profiles.cpp src/containers_3d.cpp)
-target_include_directories(quasistatic_pic_2d PRIVATE ${HDF5_INCLUDE_DIRS})
-target_include_directories(quasistatic_pic_3d PRIVATE ${HDF5_INCLUDE_DIRS})
+add_executable(quasistatic_pic src/quasistatic_pic.cpp src/System_3d.cpp src/Fourier2d.cpp src/output.cpp src/Config_reader.cpp src/profiles.cpp src/containers.cpp)
+target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
+target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
 
-target_link_libraries(quasistatic_pic_2d ${HDF5_LIBRARIES} fftw3)
-target_link_libraries(quasistatic_pic_3d ${HDF5_LIBRARIES} fftw3 fftw3_omp fmt::fmt cpptoml OpenMP::OpenMP_CXX)
+target_link_libraries(quasistatic_pic ${HDF5_LIBRARIES} fftw3 fftw3_omp fmt::fmt cpptoml OpenMP::OpenMP_CXX)
 
-target_compile_options(quasistatic_pic_2d PRIVATE -Wall -Wextra)
-target_compile_options(quasistatic_pic_3d PRIVATE -Wall -Wextra)
+target_compile_options(quasistatic_pic PRIVATE -Wall -Wextra)

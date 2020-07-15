@@ -1,7 +1,7 @@
 #pragma once
 
 #include <functional>
-#include "containers_3d.h"
+#include "containers.h"
 
 std::function<double(double, double, double)> gaussian3d(double amplitude, vector3d width, vector3d r0);
 std::function<double(double, double, double)> constant3d(double amplitude = 1.0);

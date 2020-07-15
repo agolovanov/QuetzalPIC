@@ -2,7 +2,7 @@
 set -e
 
 ROOT_DIR=$(dirname $(realpath $0))
-EXECUTABLE="$ROOT_DIR/build/quasistatic_pic_3d"
+EXECUTABLE="$ROOT_DIR/build/quasistatic_pic"
 
 INPUT_PATH=$(realpath $1)
 INPUT_DIR=$(dirname $INPUT_PATH)
