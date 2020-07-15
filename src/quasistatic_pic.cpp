@@ -1,30 +1,9 @@
 #include <chrono>
 #include <fmt/format.h>
-#include "containers.h"
 #include "System_parameters.h"
 #include "System_3d.h"
 #include "Config_reader.h"
-#include <cmath>
 #include <omp.h>
-
-double rhobunch(double xi, double y, double z) {
-    const double x0 = 4;
-    const double y0 = 10;
-    const double z0 = 10;
-
-    double xwidth = 2;
-    double ywidth = 1.5;
-    double zwidth = 1.5;
-
-    double x_prof = (fabs(xi - x0) < xwidth) ? cos(0.5 * M_PI * (xi - x0) / xwidth) : 0.0;
-    x_prof *= x_prof;
-    double y_prof = (fabs(y - y0) < ywidth) ? cos(0.5 * M_PI * (y - y0) / ywidth) : 0.0;
-    y_prof *= y_prof;
-    double z_prof = (fabs(z - z0) < zwidth) ? cos(0.5 * M_PI * (z - z0) / zwidth) : 0.0;
-    z_prof *= z_prof;
-
-    return 0.0 * x_prof * y_prof * z_prof;
-}
 
 int main(int argc, char const *argv[]) {
     std::string config_filename;
