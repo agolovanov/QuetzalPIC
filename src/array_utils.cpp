@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <cassert>
 
 template <class T>
 array2d_t<T> calculate_xy_slice(const array3d_t<T> & array, double z0) {
@@ -45,3 +46,239 @@ array1d_t<T> calculate_y_slice(const array2d_t<T> & array, double z0) {
 
 template array2d_t<double> calculate_xy_slice(const array3d_t<double> & array, double z0);
 template array1d_t<double> calculate_y_slice(const array2d_t<double> & array, double z0);
+
+void deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {
+    auto d = array.get_steps();
+    auto n = array.get_dimensions();
+
+    int j1 = (int) floor(y / d.y - yshift);
+    int j2 = (j1 + 1) % n.y;
+
+    double y_frac = (y / d.y - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+
+    int k1 = (int) floor(z / d.z - zshift);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z / d.z - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+
+    assert((j1 >= 0) && (j1 < n.y));
+    assert((j2 >= 0) && (j2 < n.y));
+    assert((k1 >= 0) && (k1 < n.z));
+    assert((k2 >= 0) && (k2 < n.z));
+
+    #pragma omp atomic update
+    array(slice, j1, k1) += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
+    array(slice, j2, k1) += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
+    array(slice, j1, k2) += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
+    array(slice, j2, k2) += value * y_frac * z_frac;
+}
+
+void deposit(double y, double z, double value, array2d & array, double yshift, double zshift) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+    
+    int j1 = (int) floor(y / d[0] - yshift);
+    int j2 = (j1 + 1) % n[0];
+
+    double y_frac = (y / d[0] - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n[0];
+    }
+
+    int k1 = (int) floor(z / d[1] - zshift);
+    int k2 = (k1 + 1) % n[1];
+    double z_frac = (z / d[1] - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n[1];
+    }
+
+    assert((j1 >= 0) && (j1 < n[0]));
+    assert((j2 >= 0) && (j2 < n[0]));
+    assert((k1 >= 0) && (k1 < n[1]));
+    assert((k2 >= 0) && (k2 < n[1]));
+
+    #pragma omp atomic update
+    array(j1, k1) += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
+    array(j2, k1) += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
+    array(j1, k2) += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
+    array(j2, k2) += value * y_frac * z_frac;
+}
+
+void deposit(double y, double z, double value, double * array, vector2d d, ivector2d n) {
+    int j1 = (int) (y / d[0]);
+    int j2 = (j1 + 1) % n[0];
+    double y_frac = (y / d[0]) - j1;
+
+    int k1 = (int) (z / d[1]);
+    int k2 = (k1 + 1) % n[1];
+    double z_frac = (z / d[1]) - k1;
+
+    assert((j1 >= 0) && (j1 < n[0]));
+    assert((j2 >= 0) && (j2 < n[0]));
+    assert((k1 >= 0) && (k1 < n[1]));
+    assert((k2 >= 0) && (k2 < n[1]));
+
+    #pragma omp atomic update
+    array[n[1] * j1 + k1] += value * (1 - y_frac) * (1 - z_frac);
+    #pragma omp atomic update
+    array[n[1] * j2 + k1] += value * y_frac * (1 - z_frac);
+    #pragma omp atomic update
+    array[n[1] * j1 + k2] += value * (1 - y_frac) * z_frac;
+    #pragma omp atomic update
+    array[n[1] * j2 + k2] += value * y_frac * z_frac;
+}
+
+double array_to_particle(double y, double z, const array3d & array, int slice, double yshift, double zshift) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+    
+    int j1 = (int) floor(y / d.y - yshift);
+    int j2 = (j1 + 1) % n.y;
+    double y_frac = (y / d.y - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+
+    int k1 = (int) floor(z / d.z - zshift);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z / d.z - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+
+    return array(slice, j1, k1) * (1 - y_frac) * (1 - z_frac) + array(slice, j2, k1) * y_frac * (1 - z_frac) +
+           array(slice, j1, k2) * (1 - y_frac) * z_frac + array(slice, j2, k2) * y_frac * z_frac;
+}
+
+double array_to_particle(double y, double z, const array2d & array, double yshift, double zshift) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+
+    int j1 = (int) floor(y / d[0] - yshift);
+    int j2 = (j1 + 1) % n[0];
+    double y_frac = (y / d[0] - yshift) - j1;
+    if (j1 < 0) {
+        j1 += n[0];
+    }
+
+    int k1 = (int) floor(z / d[1] - zshift);
+    int k2 = (k1 + 1) % n[1];
+    double z_frac = (z / d[1] - zshift) - k1;
+    if (k1 < 0) {
+        k1 += n[1];
+    }
+
+    return array(j1, k1) * (1 - y_frac) * (1 - z_frac) + array(j2, k1) * y_frac * (1 - z_frac) +
+           array(j1, k2) * (1 - y_frac) * z_frac + array(j2, k2) * y_frac * z_frac;
+}
+
+double array_yder_to_particle(double y, double z, const array3d & array, int slice) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+
+    int j1 = (int) floor(y / d.y - 0.5);
+    double y_frac = (y / d.y - 0.5) - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+    int j2 = (j1 + 1) % n.y;
+    int j3 = (j1 + 2) % n.y;
+
+    int k1 = (int) (z / d.z);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z / d.z) - k1;
+
+    double der_y1_z1 = (array(slice, j2, k1) - array(slice, j1, k1)) / d.y;
+    double der_y2_z1 = (array(slice, j3, k1) - array(slice, j2, k1)) / d.y;
+    double der_y1_z2 = (array(slice, j2, k2) - array(slice, j1, k2)) / d.y;
+    double der_y2_z2 = (array(slice, j3, k2) - array(slice, j2, k2)) / d.y;
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}
+
+double array_zder_to_particle(double y, double z, const array3d & array, int slice) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+
+    int j1 = (int) (y / d.y);
+    int j2 = (j1 + 1) % n.y;
+    double y_frac = (y / d.y) - j1;
+
+    int k1 = (int) floor(z / d.z - 0.5);
+    double z_frac = (z / d.z - 0.5) - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+    int k2 = (k1 + 1) % n.z;
+    int k3 = (k1 + 2) % n.z;
+
+    double der_y1_z1 = (array(slice, j1, k2) - array(slice, j1, k1)) / d.z;
+    double der_y2_z1 = (array(slice, j2, k2) - array(slice, j2, k1)) / d.z;
+    double der_y1_z2 = (array(slice, j1, k3) - array(slice, j1, k2)) / d.z;
+    double der_y2_z2 = (array(slice, j2, k3) - array(slice, j2, k2)) / d.z;
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}
+
+double array_yder_to_particle(double y, double z, const array2d & array) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+
+    int j1 = (int) floor(y / d[0] - 0.5);
+    double y_frac = (y / d[0] - 0.5) - j1;
+    if (j1 < 0) {
+        j1 += n[0];
+    }
+    int j2 = (j1 + 1) % n[0];
+    int j3 = (j1 + 2) % n[0];
+
+    int k1 = (int) (z / d[1]);
+    int k2 = (k1 + 1) % n[1];
+    double z_frac = (z / d[1]) - k1;
+
+    double der_y1_z1 = (array(j2, k1) - array(j1, k1)) / d[0];
+    double der_y2_z1 = (array(j3, k1) - array(j2, k1)) / d[0];
+    double der_y1_z2 = (array(j2, k2) - array(j1, k2)) / d[0];
+    double der_y2_z2 = (array(j3, k2) - array(j2, k2)) / d[0];
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}
+
+double array_zder_to_particle(double y, double z, const array2d & array) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+
+    int j1 = (int) (y / d[0]);
+    int j2 = (j1 + 1) % n[0];
+    double y_frac = (y / d[0]) - j1;
+
+    int k1 = (int) floor(z / d[1] - 0.5);
+    double z_frac = (z / d[1] - 0.5) - k1;
+    if (k1 < 0) {
+        k1 += n[1];
+    }
+    int k2 = (k1 + 1) % n[1];
+    int k3 = (k1 + 2) % n[1];
+
+    double der_y1_z1 = (array(j1, k2) - array(j1, k1)) / d[1];
+    double der_y2_z1 = (array(j2, k2) - array(j2, k1)) / d[1];
+    double der_y1_z2 = (array(j1, k3) - array(j1, k2)) / d[1];
+    double der_y2_z2 = (array(j2, k3) - array(j2, k2)) / d[1];
+
+    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
+           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
+}

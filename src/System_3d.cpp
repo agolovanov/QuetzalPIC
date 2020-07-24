@@ -74,12 +74,13 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     fourier = Fourier2d(n.y, n.z);
 
-    ivector2d size_yz{n.y, n.z};
+    const ivector2d size_yz{n.y, n.z};
+    const vector2d d_yz{d.y, d.z};
     
-    psi_middle = array2d(size_yz);
-    djy_dxi = array2d(size_yz);
-    djz_dxi = array2d(size_yz);
-    rho_ion = array2d(size_yz, {d.y, d.z});
+    psi_middle = array2d(size_yz, d_yz);
+    djy_dxi = array2d(size_yz, d_yz, {0.5 * d.y, 0});
+    djz_dxi = array2d(size_yz, d_yz, {0, 0.5 * d.z});
+    rho_ion = array2d(size_yz, d_yz);
 
     a_sqr = array3d(n, d);
     susceptibility = array3d(n, d);
@@ -148,7 +149,7 @@ void System_3d::solve_wakefield() {
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = particles[pi];
-            deposit(p.y, p.z, -p.n, fourier.in);
+            deposit(p.y, p.z, -p.n, fourier.in, {d.y, d.z}, {n.y, n.z});
         }
 
         // cacluate psi
@@ -247,7 +248,7 @@ void System_3d::solve_wakefield() {
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
-                deposit(p.y_middle, p.z_middle, -p.n, fourier.in);
+                deposit(p.y_middle, p.z_middle, -p.n, fourier.in, {d.y, d.z}, {n.y, n.z});
             }
 
             // calculate psi_middle
@@ -518,218 +519,6 @@ void System_3d::output_step(H5::H5File & fields_file, H5::H5File & fields_xy_fil
         write_slice(calculate_y_slice(ey, z0), slice_index, "ey", fields_xy_file);
         write_slice(calculate_y_slice(ez, z0), slice_index, "ez", fields_xy_file);
     }
-}
-
-void System_3d::deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {
-    int j1 = (int) floor(y / d.y - yshift);
-    int j2 = (j1 + 1) % n.y;
-
-    double y_frac = (y / d.y - yshift) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-
-    int k1 = (int) floor(z / d.z - zshift);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-
-    assert((j1 >= 0) && (j1 < n.y));
-    assert((j2 >= 0) && (j2 < n.y));
-    assert((k1 >= 0) && (k1 < n.z));
-    assert((k2 >= 0) && (k2 < n.z));
-
-    #pragma omp atomic update
-    array(slice, j1, k1) += value * (1 - y_frac) * (1 - z_frac);
-    #pragma omp atomic update
-    array(slice, j2, k1) += value * y_frac * (1 - z_frac);
-    #pragma omp atomic update
-    array(slice, j1, k2) += value * (1 - y_frac) * z_frac;
-    #pragma omp atomic update
-    array(slice, j2, k2) += value * y_frac * z_frac;
-}
-
-void System_3d::deposit(double y, double z, double value, array2d & array, double yshift, double zshift) {
-    int j1 = (int) floor(y / d.y - yshift);
-    int j2 = (j1 + 1) % n.y;
-
-    double y_frac = (y / d.y - yshift) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-
-    int k1 = (int) floor(z / d.z - zshift);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-
-    assert((j1 >= 0) && (j1 < n.y));
-    assert((j2 >= 0) && (j2 < n.y));
-    assert((k1 >= 0) && (k1 < n.z));
-    assert((k2 >= 0) && (k2 < n.z));
-
-    #pragma omp atomic update
-    array(j1, k1) += value * (1 - y_frac) * (1 - z_frac);
-    #pragma omp atomic update
-    array(j2, k1) += value * y_frac * (1 - z_frac);
-    #pragma omp atomic update
-    array(j1, k2) += value * (1 - y_frac) * z_frac;
-    #pragma omp atomic update
-    array(j2, k2) += value * y_frac * z_frac;
-}
-
-void System_3d::deposit(double y, double z, double value, double * array) {
-    int j1 = (int) (y / d.y);
-    int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y) - j1;
-
-    int k1 = (int) (z / d.z);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z) - k1;
-
-    assert((j1 >= 0) && (j1 < n.y));
-    assert((j2 >= 0) && (j2 < n.y));
-    assert((k1 >= 0) && (k1 < n.z));
-    assert((k2 >= 0) && (k2 < n.z));
-
-    #pragma omp atomic update
-    array[n.z * j1 + k1] += value * (1 - y_frac) * (1 - z_frac);
-    #pragma omp atomic update
-    array[n.z * j2 + k1] += value * y_frac * (1 - z_frac);
-    #pragma omp atomic update
-    array[n.z * j1 + k2] += value * (1 - y_frac) * z_frac;
-    #pragma omp atomic update
-    array[n.z * j2 + k2] += value * y_frac * z_frac;
-}
-
-double System_3d::array_to_particle(double y, double z, const array3d & array, int slice, double yshift, double zshift) const {
-    int j1 = (int) floor(y / d.y - yshift);
-    int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y - yshift) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-
-    int k1 = (int) floor(z / d.z - zshift);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-
-    return array(slice, j1, k1) * (1 - y_frac) * (1 - z_frac) + array(slice, j2, k1) * y_frac * (1 - z_frac) +
-           array(slice, j1, k2) * (1 - y_frac) * z_frac + array(slice, j2, k2) * y_frac * z_frac;
-}
-
-double System_3d::array_to_particle(double y, double z, const array2d & array, double yshift, double zshift) const {
-    int j1 = (int) floor(y / d.y - yshift);
-    int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y - yshift) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-
-    int k1 = (int) floor(z / d.z - zshift);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-
-    return array(j1, k1) * (1 - y_frac) * (1 - z_frac) + array(j2, k1) * y_frac * (1 - z_frac) +
-           array(j1, k2) * (1 - y_frac) * z_frac + array(j2, k2) * y_frac * z_frac;
-}
-
-double System_3d::array_yder_to_particle(double y, double z, const array3d & array, int slice) const {
-    int j1 = (int) floor(y / d.y - 0.5);
-    double y_frac = (y / d.y - 0.5) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-    int j2 = (j1 + 1) % n.y;
-    int j3 = (j1 + 2) % n.y;
-
-    int k1 = (int) (z / d.z);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z) - k1;
-
-    double der_y1_z1 = (array(slice, j2, k1) - array(slice, j1, k1)) / d.y;
-    double der_y2_z1 = (array(slice, j3, k1) - array(slice, j2, k1)) / d.y;
-    double der_y1_z2 = (array(slice, j2, k2) - array(slice, j1, k2)) / d.y;
-    double der_y2_z2 = (array(slice, j3, k2) - array(slice, j2, k2)) / d.y;
-
-    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
-           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
-}
-
-double System_3d::array_zder_to_particle(double y, double z, const array3d & array, int slice) const {
-    int j1 = (int) (y / d.y);
-    int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y) - j1;
-
-    int k1 = (int) floor(z / d.z - 0.5);
-    double z_frac = (z / d.z - 0.5) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-    int k2 = (k1 + 1) % n.z;
-    int k3 = (k1 + 2) % n.z;
-
-    double der_y1_z1 = (array(slice, j1, k2) - array(slice, j1, k1)) / d.z;
-    double der_y2_z1 = (array(slice, j2, k2) - array(slice, j2, k1)) / d.z;
-    double der_y1_z2 = (array(slice, j1, k3) - array(slice, j1, k2)) / d.z;
-    double der_y2_z2 = (array(slice, j2, k3) - array(slice, j2, k2)) / d.z;
-
-    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
-           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
-}
-
-double System_3d::array_yder_to_particle(double y, double z, const array2d & array) const {
-    int j1 = (int) floor(y / d.y - 0.5);
-    double y_frac = (y / d.y - 0.5) - j1;
-    if (j1 < 0) {
-        j1 += n.y;
-    }
-    int j2 = (j1 + 1) % n.y;
-    int j3 = (j1 + 2) % n.y;
-
-    int k1 = (int) (z / d.z);
-    int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z) - k1;
-
-    double der_y1_z1 = (array(j2, k1) - array(j1, k1)) / d.y;
-    double der_y2_z1 = (array(j3, k1) - array(j2, k1)) / d.y;
-    double der_y1_z2 = (array(j2, k2) - array(j1, k2)) / d.y;
-    double der_y2_z2 = (array(j3, k2) - array(j2, k2)) / d.y;
-
-    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
-           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
-}
-
-double System_3d::array_zder_to_particle(double y, double z, const array2d & array) const {
-    int j1 = (int) (y / d.y);
-    int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y) - j1;
-
-    int k1 = (int) floor(z / d.z - 0.5);
-    double z_frac = (z / d.z - 0.5) - k1;
-    if (k1 < 0) {
-        k1 += n.z;
-    }
-    int k2 = (k1 + 1) % n.z;
-    int k3 = (k1 + 2) % n.z;
-
-    double der_y1_z1 = (array(j1, k2) - array(j1, k1)) / d.z;
-    double der_y2_z1 = (array(j2, k2) - array(j2, k1)) / d.z;
-    double der_y1_z2 = (array(j1, k3) - array(j1, k2)) / d.z;
-    double der_y2_z2 = (array(j2, k3) - array(j2, k2)) / d.z;
-
-    return der_y1_z1 * (1 - y_frac) * (1 - z_frac) + der_y2_z1 * y_frac * (1 - z_frac) +
-           der_y1_z2 * (1 - y_frac) * z_frac + der_y2_z2 * y_frac * z_frac;
 }
 
 void System_3d::normalize_coordinates(double & y, double & z) {

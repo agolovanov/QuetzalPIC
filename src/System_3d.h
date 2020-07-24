@@ -15,15 +15,6 @@ public:
     System_3d(System_parameters & params, std::ostream & out);
     void solve_wakefield();
 private:
-    void deposit(double y, double z, double value, array3d & array, int slice, double yshift=0.0, double zshift=0.0);
-    void deposit(double y, double z, double value, array2d & array, double yshift=0.0, double zshift=0.0);
-    void deposit(double y, double z, double value, double * array);
-    double array_to_particle(double y, double z, const array3d & array, int slice, double yshift=0.0, double zshift=0.0) const;
-    double array_to_particle(double y, double z, const array2d & array, double yshift=0.0, double zshift=0.0) const;
-    double array_yder_to_particle(double y, double z, const array3d & array, int slice) const;
-    double array_zder_to_particle(double y, double z, const array3d & array, int slice) const;
-    double array_yder_to_particle(double y, double z, const array2d & array) const;
-    double array_zder_to_particle(double y, double z, const array2d & array) const;
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
     void init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
