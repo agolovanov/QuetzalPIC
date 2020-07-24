@@ -9,6 +9,15 @@
 #include "array2d.h"
 #include "array3d.h"
 #include "Fourier2d.h"
+#include "Output_writer.h"
+
+template <class T>
+struct Output_reference {
+    Output_reference(std::string name, T * ptr) : name(name), ptr(ptr) {}
+
+    std::string name;
+    T* ptr;
+};
 
 class System_3d {
 public:
@@ -21,9 +30,8 @@ private:
     void init_a_sqr(std::function<double(double, double, double)> func);
     void increase_minimum(array3d & array, int slice, double value) const;
     void increase_minimum(array2d & array, double value) const;
-    void initialize_output(H5::H5File & fields_file, H5::H5File & fields_xy_file) const;
-    void output_step(H5::H5File & fields_file, H5::H5File & fields_xy_file, int slice_index);
-    void output_full(H5::H5File & fields_file, H5::H5File & fields_xy_file) const;
+    void output_step(Output_writer & output_writer, const std::vector<Output_reference<array2d>> & output_arrays_2d,
+                     int slice_index);
 
     ivector3d n;
     vector3d l;

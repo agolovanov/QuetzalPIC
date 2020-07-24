@@ -22,7 +22,7 @@ find_package(OpenMP REQUIRED)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
 
-add_executable(quasistatic_pic src/quasistatic_pic.cpp src/System_3d.cpp src/Fourier2d.cpp src/output.cpp 
+add_executable(quasistatic_pic src/quasistatic_pic.cpp src/System_3d.cpp src/Fourier2d.cpp src/Output_writer.cpp 
                src/Config_reader.cpp src/profiles.cpp src/array_utils.cpp src/array1d.cpp src/array2d.cpp)
 target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
 target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})

@@ -12,7 +12,7 @@
 #include "array2d.h"
 #include "array3d.h"
 #include "array_utils.h"
-#include "output.h"
+#include "Output_writer.h"
 
 std::string memory_formatter(long bytes) {
     double res = bytes;
@@ -24,6 +24,19 @@ std::string memory_formatter(long bytes) {
     }
     return fmt::format("{:5.1f} {}", res, prefixes[index]);
 }
+
+const std::string ASQR = "aSqr";
+const std::string PSI = "psi";
+const std::string EX = "ex";
+const std::string EY = "ey";
+const std::string EZ = "ez";
+const std::string BY = "by";
+const std::string BZ = "bz";
+const std::string RHO = "rho";
+const std::string JX = "jx";
+const std::string JY = "jy";
+const std::string JZ = "jz";
+const std::string SUSCEPTIBILITY = "susceptibility";
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
@@ -103,16 +116,27 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 }
 
 void System_3d::solve_wakefield() {
-    H5::H5File fields_file;
-    if (output_parameters.output3d) {
-        fields_file = H5::H5File("Fields.h5", H5F_ACC_TRUNC);
-    }
-    H5::H5File fields_xy_file;
-    if (output_parameters.output_xy) {
-        fields_xy_file = H5::H5File("Fields_xy.h5", H5F_ACC_TRUNC);
-    }
+    auto output_writer = Output_writer(output_parameters);
 
-    initialize_output(fields_file, fields_xy_file);
+    std::vector<Output_reference<array3d>> output_arrays_3d;
+    output_arrays_3d.push_back(Output_reference<array3d>(ASQR, &a_sqr));
+    output_arrays_3d.push_back(Output_reference<array3d>(SUSCEPTIBILITY, &susceptibility));
+
+    std::vector<Output_reference<array2d>> output_arrays_2d;
+    output_arrays_2d.push_back(Output_reference<array2d>(PSI, &psi));
+    output_arrays_2d.push_back(Output_reference<array2d>(RHO, &rho));
+    output_arrays_2d.push_back(Output_reference<array2d>(JX, &jx));
+    output_arrays_2d.push_back(Output_reference<array2d>(JY, &jy));
+    output_arrays_2d.push_back(Output_reference<array2d>(JZ, &jz));
+    output_arrays_2d.push_back(Output_reference<array2d>(EX, &ex));
+    output_arrays_2d.push_back(Output_reference<array2d>(EY, &ey));
+    output_arrays_2d.push_back(Output_reference<array2d>(EZ, &ez));
+    output_arrays_2d.push_back(Output_reference<array2d>(BY, &by));
+    output_arrays_2d.push_back(Output_reference<array2d>(BZ, &bz));
+
+    for (auto & output_arr : output_arrays_2d) {
+        output_writer.initialize_slice_array(n, d, *(output_arr.ptr), output_arr.name);
+    }
 
     int particle_number = particles.size();
 
@@ -401,7 +425,7 @@ void System_3d::solve_wakefield() {
             normalize_coordinates(p.y, p.z);
         }
 
-        output_step(fields_file, fields_xy_file, i);
+        output_step(output_writer, output_arrays_2d, i);
 
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
@@ -412,55 +436,15 @@ void System_3d::solve_wakefield() {
         }
     }
 
-    output_step(fields_file, fields_xy_file, n.x - 1);
+    output_step(output_writer, output_arrays_2d, n.x - 1);
 
-    output_full(fields_file, fields_xy_file);
-}
-
-void System_3d::initialize_output(H5::H5File & fields_file, H5::H5File & fields_xy_file) const {
-    if (output_parameters.output3d) {
-        initialize_slice_array(n, d, psi.get_origin_3d(), "psi", fields_file);
-        initialize_slice_array(n, d, rho.get_origin_3d(), "rho", fields_file);
-        initialize_slice_array(n, d, jx.get_origin_3d(), "jx", fields_file);
-        initialize_slice_array(n, d, jy.get_origin_3d(), "jy", fields_file);
-        initialize_slice_array(n, d, jz.get_origin_3d(), "jz", fields_file);
-        initialize_slice_array(n, d, by.get_origin_3d(), "by", fields_file);
-        initialize_slice_array(n, d, bz.get_origin_3d(), "bz", fields_file);
-        initialize_slice_array(n, d, ex.get_origin_3d(), "ex", fields_file);
-        initialize_slice_array(n, d, ey.get_origin_3d(), "ey", fields_file);
-        initialize_slice_array(n, d, ez.get_origin_3d(), "ez", fields_file);
-    }
-    if (output_parameters.output_xy) {
-        const ivector2d size = {n.x, n.y};
-        const vector2d steps = {d.x, d.y};
-        const double z0 = 0.5 * l.z;
-
-        initialize_slice_array(size, steps, {psi.get_origin_3d().x, psi.get_origin_3d().y}, Plane::XY, z0, "psi", fields_xy_file);
-        initialize_slice_array(size, steps, {rho.get_origin_3d().x, rho.get_origin_3d().y}, Plane::XY, z0, "rho", fields_xy_file);
-        initialize_slice_array(size, steps, {jx.get_origin_3d().x, jx.get_origin_3d().y}, Plane::XY, z0, "jx", fields_xy_file);
-        initialize_slice_array(size, steps, {jy.get_origin_3d().x, jy.get_origin_3d().y}, Plane::XY, z0, "jy", fields_xy_file);
-        initialize_slice_array(size, steps, {jz.get_origin_3d().x, jz.get_origin_3d().y}, Plane::XY, z0, "jz", fields_xy_file);
-        initialize_slice_array(size, steps, {by.get_origin_3d().x, by.get_origin_3d().y}, Plane::XY, z0, "by", fields_xy_file);
-        initialize_slice_array(size, steps, {bz.get_origin_3d().x, bz.get_origin_3d().y}, Plane::XY, z0, "bz", fields_xy_file);
-        initialize_slice_array(size, steps, {ex.get_origin_3d().x, ex.get_origin_3d().y}, Plane::XY, z0, "ex", fields_xy_file);
-        initialize_slice_array(size, steps, {ey.get_origin_3d().x, ey.get_origin_3d().y}, Plane::XY, z0, "ey", fields_xy_file);
-        initialize_slice_array(size, steps, {ez.get_origin_3d().x, ez.get_origin_3d().y}, Plane::XY, z0, "ez", fields_xy_file);
+    for (auto & output_arr : output_arrays_3d) {
+        output_writer.write_array(*(output_arr.ptr), output_arr.name);
     }
 }
 
-void System_3d::output_full(H5::H5File & fields_file, H5::H5File & fields_xy_file) const {
-    if (output_parameters.output3d) {
-        write_array(a_sqr, "aSqr", fields_file);
-        write_array(susceptibility, "susceptibility", fields_file);
-    }
-    if (output_parameters.output_xy) {
-        const double z0 = 0.5 * l.z;
-        write_array(calculate_xy_slice(a_sqr, z0), "aSqr", fields_xy_file);
-        write_array(calculate_xy_slice(susceptibility, z0), "susceptibility", fields_xy_file);
-    }
-}
-
-void System_3d::output_step(H5::H5File & fields_file, H5::H5File & fields_xy_file, int slice_index) {
+void System_3d::output_step(Output_writer & output_writer, 
+                            const std::vector<Output_reference<array2d>> & output_arrays_2d, int slice_index) {
     const int i = slice_index;
     
     // calculate ex
@@ -493,31 +477,8 @@ void System_3d::output_step(H5::H5File & fields_file, H5::H5File & fields_xy_fil
         ez(j, n.z-1) = -(psi(j, 0) - psi(j, n.z-1)) / d.z - by(j, n.z-1);
     }
     
-    if (output_parameters.output3d) {
-        write_slice(psi, slice_index, "psi", fields_file);
-        write_slice(rho, slice_index, "rho", fields_file);
-        write_slice(jx, slice_index, "jx", fields_file);
-        write_slice(jy, slice_index, "jy", fields_file);
-        write_slice(jz, slice_index, "jz", fields_file);
-        write_slice(by, slice_index, "by", fields_file);
-        write_slice(bz, slice_index, "bz", fields_file);
-        write_slice(ex, slice_index, "ex", fields_file);
-        write_slice(ey, slice_index, "ey", fields_file);
-        write_slice(ez, slice_index, "ez", fields_file);
-    }
-    if (output_parameters.output_xy) {
-        const double z0 = 0.5 * l.z;
-
-        write_slice(calculate_y_slice(psi, z0), slice_index, "psi", fields_xy_file);
-        write_slice(calculate_y_slice(rho, z0), slice_index, "rho", fields_xy_file);
-        write_slice(calculate_y_slice(jx, z0), slice_index, "jx", fields_xy_file);
-        write_slice(calculate_y_slice(jy, z0), slice_index, "jy", fields_xy_file);
-        write_slice(calculate_y_slice(jz, z0), slice_index, "jz", fields_xy_file);
-        write_slice(calculate_y_slice(by, z0), slice_index, "by", fields_xy_file);
-        write_slice(calculate_y_slice(bz, z0), slice_index, "bz", fields_xy_file);
-        write_slice(calculate_y_slice(ex, z0), slice_index, "ex", fields_xy_file);
-        write_slice(calculate_y_slice(ey, z0), slice_index, "ey", fields_xy_file);
-        write_slice(calculate_y_slice(ez, z0), slice_index, "ez", fields_xy_file);
+    for (auto & output_arr : output_arrays_2d) {
+        output_writer.write_slice(*(output_arr.ptr), output_arr.name, slice_index);
     }
 }
 

@@ -149,6 +149,7 @@ void Config_reader::init_output_parameters() {
 
         output_parameters.output3d = read_value<bool>("fields_3d", false, output_table);
         output_parameters.output_xy = read_value<bool>("fields_xy", false, output_table);
+        output_parameters.z0 = read_value<double>("z0", 0.5 * params.l.z, output_table);
     } else {
         out << "No [output] block in config; no output files will be created" << std::endl;
     }
