@@ -216,8 +216,8 @@ void System_3d::solve_wakefield() {
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
                 double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi);
                 double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi);
-                double by_particle = array_to_particle(p.y, p.z, by, 0.0, 0.5);
-                double bz_particle = array_to_particle(p.y, p.z, bz, 0.5, 0.0);
+                double by_particle = array_to_particle(p.y, p.z, by);
+                double bz_particle = array_to_particle(p.y, p.z, bz);
 
                 p.py_next = p.py - d.x * 0.5 * da_dy_particle / (1 + psi_particle);
                 p.py_next += d.x * p.gamma * dpsi_dy_particle / (1 + psi_particle);
@@ -275,8 +275,8 @@ void System_3d::solve_wakefield() {
             for (int pi = 0; pi < particle_number; pi++) {
                 auto & p = particles[pi];
                 double psi_particle = array_to_particle(p.y_middle, p.z_middle, psi_middle);
-                deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy_next, 0.5, 0.0);
-                deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz_next, 0.0, 0.5);
+                deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy_next);
+                deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz_next);
             }
 
             // calculate new djy_dxi, djz_dxi

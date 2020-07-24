@@ -47,21 +47,22 @@ array1d_t<T> calculate_y_slice(const array2d_t<T> & array, double z0) {
 template array2d_t<double> calculate_xy_slice(const array3d_t<double> & array, double z0);
 template array1d_t<double> calculate_y_slice(const array2d_t<double> & array, double z0);
 
-void deposit(double y, double z, double value, array3d & array, int slice, double yshift, double zshift) {
-    auto d = array.get_steps();
-    auto n = array.get_dimensions();
+void deposit(double y, double z, double value, array3d & array, int slice) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+    const auto origin = array.get_origin();
 
-    int j1 = (int) floor(y / d.y - yshift);
+    int j1 = (int) floor((y - origin.y) / d.y);
     int j2 = (j1 + 1) % n.y;
 
-    double y_frac = (y / d.y - yshift) - j1;
+    double y_frac = (y - origin.y) / d.y - j1;
     if (j1 < 0) {
         j1 += n.y;
     }
 
-    int k1 = (int) floor(z / d.z - zshift);
+    int k1 = (int) floor((z - origin.z) / d.z);
     int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
+    double z_frac = (z - origin.z) / d.z - k1;
     if (k1 < 0) {
         k1 += n.z;
     }
@@ -81,21 +82,22 @@ void deposit(double y, double z, double value, array3d & array, int slice, doubl
     array(slice, j2, k2) += value * y_frac * z_frac;
 }
 
-void deposit(double y, double z, double value, array2d & array, double yshift, double zshift) {
+void deposit(double y, double z, double value, array2d & array) {
     const auto d = array.get_steps();
     const auto n = array.get_dimensions();
+    const auto origin = array.get_origin_2d();
     
-    int j1 = (int) floor(y / d[0] - yshift);
+    int j1 = (int) floor((y - origin[0]) / d[0]);
     int j2 = (j1 + 1) % n[0];
 
-    double y_frac = (y / d[0] - yshift) - j1;
+    double y_frac = (y - origin[0]) / d[0] - j1;
     if (j1 < 0) {
         j1 += n[0];
     }
 
-    int k1 = (int) floor(z / d[1] - zshift);
+    int k1 = (int) floor((z - origin[1]) / d[1]);
     int k2 = (k1 + 1) % n[1];
-    double z_frac = (z / d[1] - zshift) - k1;
+    double z_frac = (z - origin[1]) / d[1] - k1;
     if (k1 < 0) {
         k1 += n[1];
     }
@@ -139,20 +141,21 @@ void deposit(double y, double z, double value, double * array, vector2d d, ivect
     array[n[1] * j2 + k2] += value * y_frac * z_frac;
 }
 
-double array_to_particle(double y, double z, const array3d & array, int slice, double yshift, double zshift) {
+double array_to_particle(double y, double z, const array3d & array, int slice) {
     const auto d = array.get_steps();
     const auto n = array.get_dimensions();
+    const auto origin = array.get_origin();
     
-    int j1 = (int) floor(y / d.y - yshift);
+    int j1 = (int) floor((y - origin.y) / d.y);
     int j2 = (j1 + 1) % n.y;
-    double y_frac = (y / d.y - yshift) - j1;
+    double y_frac = (y - origin.y) / d.y - j1;
     if (j1 < 0) {
         j1 += n.y;
     }
 
-    int k1 = (int) floor(z / d.z - zshift);
+    int k1 = (int) floor((z - origin.z) / d.z);
     int k2 = (k1 + 1) % n.z;
-    double z_frac = (z / d.z - zshift) - k1;
+    double z_frac = (z - origin.z) / d.z - k1;
     if (k1 < 0) {
         k1 += n.z;
     }
@@ -161,20 +164,21 @@ double array_to_particle(double y, double z, const array3d & array, int slice, d
            array(slice, j1, k2) * (1 - y_frac) * z_frac + array(slice, j2, k2) * y_frac * z_frac;
 }
 
-double array_to_particle(double y, double z, const array2d & array, double yshift, double zshift) {
+double array_to_particle(double y, double z, const array2d & array) {
     const auto d = array.get_steps();
     const auto n = array.get_dimensions();
+    const auto origin = array.get_origin_2d();
 
-    int j1 = (int) floor(y / d[0] - yshift);
+    int j1 = (int) floor((y - origin[0]) / d[0]);
     int j2 = (j1 + 1) % n[0];
-    double y_frac = (y / d[0] - yshift) - j1;
+    double y_frac = (y - origin[0]) / d[0] - j1;
     if (j1 < 0) {
         j1 += n[0];
     }
 
-    int k1 = (int) floor(z / d[1] - zshift);
+    int k1 = (int) floor((z - origin[1]) / d[1]);
     int k2 = (k1 + 1) % n[1];
-    double z_frac = (z / d[1] - zshift) - k1;
+    double z_frac = (z - origin[1]) / d[1] - k1;
     if (k1 < 0) {
         k1 += n[1];
     }
