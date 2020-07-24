@@ -9,6 +9,9 @@
 
 #include "System_3d.h"
 #include "containers.h"
+#include "array2d.h"
+#include "array3d.h"
+#include "array_utils.h"
 #include "output.h"
 
 std::string memory_formatter(long bytes) {

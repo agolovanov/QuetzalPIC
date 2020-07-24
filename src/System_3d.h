@@ -6,6 +6,8 @@
 #include <iostream>
 #include "System_parameters.h"
 #include "containers.h"
+#include "array2d.h"
+#include "array3d.h"
 #include "Fourier2d.h"
 
 class System_3d {
