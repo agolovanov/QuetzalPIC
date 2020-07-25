@@ -9,7 +9,7 @@ public:
 
     array2d_t(const ivector2d n, const vector2d steps = {0, 0}, const vector2d origin = {0, 0}, 
               Plane plane = Plane::NONE, double plane_coordinate = 0) : 
-        n(n), data(n[0] * n[1]), steps(steps), plane(plane) { 
+        n(n), data(n[0] * n[1]), steps(steps), origin_2d(origin), plane(plane) { 
         if ((this->plane == Plane::NONE) || (this->plane == Plane::XY)) {
             this->origin = {origin[0], origin[1], plane_coordinate};
         } else if (this->plane == Plane::XZ) {
@@ -24,10 +24,13 @@ public:
 
         if ((this->plane == Plane::NONE) || (this->plane == Plane::XY)) {
             this->steps = {steps.x, steps.y};
+            this->origin_2d = {origin.x, origin.y};
         } else if (this->plane == Plane::XZ) {
             this->steps = {steps.x, steps.z};
+            this->origin_2d = {origin.x, origin.z};
         } else {
             this->steps = {steps.y, steps.z};
+            this->origin_2d = {origin.y, origin.z};
         }
     }
 
@@ -60,13 +63,7 @@ public:
     }
 
     inline vector2d get_origin_2d() const {
-        if ((plane == Plane::NONE) || (plane == Plane::XY)) {
-            return {origin.x, origin.y};
-        } else if (plane == Plane::XZ) {
-            return {origin.x, origin.z};
-        } else {
-            return {origin.y, origin.z};
-        }
+        return origin_2d;
     }
 
     inline auto get_plane() const { 
@@ -88,6 +85,7 @@ private:
     std::vector<T> data;
     vector2d steps;
     vector3d origin;
+    vector2d origin_2d;
     Plane plane;
 };
 
