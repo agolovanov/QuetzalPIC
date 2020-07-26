@@ -151,7 +151,7 @@ void System_3d::solve_wakefield() {
     bool stop_flag = false;
     const double THRESHOLD_B = 100;
 
-    for (int i = 0; i < n.x; i++) {
+    for (int i = n.x - 1; i >= 0; i--) {
 
         out << "Slice " << i << std::endl;
 
@@ -225,7 +225,7 @@ void System_3d::solve_wakefield() {
             deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
         }
 
-        if (i == n.x - 1) {
+        if (i == 0) {
             break;
         }
 
@@ -436,7 +436,7 @@ void System_3d::solve_wakefield() {
         }
     }
 
-    output_step(output_writer, output_arrays_2d, n.x - 1);
+    output_step(output_writer, output_arrays_2d, 0);
 
     for (auto & output_arr : output_arrays_3d) {
         output_writer.write_array(*(output_arr.ptr), output_arr.name);
@@ -448,7 +448,7 @@ void System_3d::output_step(Output_writer & output_writer,
     const int i = slice_index;
     
     // calculate ex
-    if (i > 0) {
+    if (i < n.x - 1) {
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {

@@ -16,7 +16,7 @@ rho0 = -3
 xsigma = 4
 ysigma = 4
 zsigma = 4
-x0 = 5
+x0 = 15
 
 [output]
 fields_3d = true
