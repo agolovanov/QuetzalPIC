@@ -4,7 +4,10 @@
 #include "array_utils.h"
 
 void write_array(const array3d & array, const std::string name, H5::H5File file) {
-    const hsize_t dims[3] {array.get_n1(), array.get_n2(), array.get_n3()};
+    const hsize_t n1 = static_cast<hsize_t>(array.get_n1());
+    const hsize_t n2 = static_cast<hsize_t>(array.get_n2());
+    const hsize_t n3 = static_cast<hsize_t>(array.get_n3());
+    const hsize_t dims[3] {n1, n2, n3};
     H5::DataSpace dataspace(3, dims);
 
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
@@ -22,7 +25,10 @@ void write_array(const array3d & array, const std::string name, H5::H5File file)
 }
 
 void write_array(const array2d & array, const std::string name, H5::H5File file) {
-    const hsize_t dims[2] {array.get_n1(), array.get_n2()};
+    const hsize_t n1 = static_cast<hsize_t>(array.get_n1());
+    const hsize_t n2 = static_cast<hsize_t>(array.get_n2());
+    
+    const hsize_t dims[2] {n1, n2};
     H5::DataSpace dataspace(2, dims);
 
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
@@ -53,7 +59,11 @@ void write_array(const array2d & array, const std::string name, H5::H5File file)
 }
 
 void initialize_slice_array(ivector3d size, vector3d steps, vector3d origin, const std::string name, H5::H5File file) {
-    const hsize_t dims[3] {size.x, size.y, size.z};
+    const hsize_t n1 = static_cast<hsize_t>(size.x);
+    const hsize_t n2 = static_cast<hsize_t>(size.y);
+    const hsize_t n3 = static_cast<hsize_t>(size.z);
+    
+    const hsize_t dims[3] {n1, n2, n3};
     H5::DataSpace dataspace(3, dims);
 
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
@@ -69,7 +79,10 @@ void initialize_slice_array(ivector3d size, vector3d steps, vector3d origin, con
 
 void initialize_slice_array(ivector2d size, vector2d steps, vector2d origin, Plane plane, double plane_coordinate,
                             const std::string name, H5::H5File file) {
-    const hsize_t dims[2] {size[0], size[1]};
+    const hsize_t n1 = static_cast<hsize_t>(size[0]);
+    const hsize_t n2 = static_cast<hsize_t>(size[1]);
+    
+    const hsize_t dims[2] {n1, n2};
     H5::DataSpace dataspace(2, dims);
 
     H5::DataSet dataset = file.createDataSet(name, H5::PredType::NATIVE_DOUBLE, dataspace);
@@ -95,8 +108,8 @@ void initialize_slice_array(ivector2d size, vector2d steps, vector2d origin, Pla
 }
 
 void write_slice(const array2d & slice, int slice_index, const std::string name, H5::H5File file) {
-    int n1 = slice.get_n1();
-    int n2 = slice.get_n2();
+    const hsize_t n1 = static_cast<hsize_t>(slice.get_n1());
+    const hsize_t n2 = static_cast<hsize_t>(slice.get_n2());
 
     const hsize_t dims[2] {n1, n2};
     H5::DataSpace memory_dataspace(2, dims);
@@ -104,14 +117,14 @@ void write_slice(const array2d & slice, int slice_index, const std::string name,
     auto dataset = file.openDataSet(name);
     auto write_dataspace = dataset.getSpace();
     const hsize_t count[3] {1, n1, n2};
-    const hsize_t start[3] {slice_index, 0, 0};
+    const hsize_t start[3] {static_cast<hsize_t>(slice_index), 0, 0};
     write_dataspace.selectHyperslab(H5S_SELECT_SET, count, start);
 
     dataset.write(&(slice(0, 0)), H5::PredType::NATIVE_DOUBLE, memory_dataspace, write_dataspace);
 }
 
 void write_slice(const array1d & slice, int slice_index, const std::string name, H5::H5File file) {
-    int n = slice.get_size();
+    const hsize_t n = static_cast<hsize_t>(slice.get_size());
 
     const hsize_t dims[1] {n};
     H5::DataSpace memory_dataspace(1, dims);
@@ -119,7 +132,7 @@ void write_slice(const array1d & slice, int slice_index, const std::string name,
     auto dataset = file.openDataSet(name);
     auto write_dataspace = dataset.getSpace();
     const hsize_t count[2] {1, n};
-    const hsize_t start[2] {slice_index, 0};
+    const hsize_t start[2] {static_cast<hsize_t>(slice_index), 0};
     write_dataspace.selectHyperslab(H5S_SELECT_SET, count, start);
 
     dataset.write(&(slice(0)), H5::PredType::NATIVE_DOUBLE, memory_dataspace, write_dataspace);
