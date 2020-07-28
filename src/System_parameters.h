@@ -13,6 +13,8 @@ struct Output_parameters {
 struct System_parameters {
     vector3d l;
     vector3d d;
+    double dt;
+    double t_end;
     int ppcy = 1;
     int ppcz = 1;
     int magnetic_field_iterations = 1;

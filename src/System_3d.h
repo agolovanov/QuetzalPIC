@@ -22,8 +22,9 @@ struct Output_reference {
 class System_3d {
 public:
     System_3d(System_parameters & params, std::ostream & out);
-    void solve_wakefield();
+    void run();
 private:
+    void solve_wakefield(int iteration);
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
     void init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
@@ -36,6 +37,13 @@ private:
     ivector3d n;
     vector3d l;
     vector3d d;
+    double dt;
+    double t_end;
+    int time_iterations;
+
+    double ppcy;
+    double ppcz;
+    std::function<double(double, double)> plasma_profile;
 
     int magnetic_field_iterations;
     double psi_threshold = 1e-4;

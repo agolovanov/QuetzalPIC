@@ -27,6 +27,9 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
     params.d.y = read_value<double>("dy");
     params.d.z = read_value<double>("dz");
 
+    params.dt = read_value<double>("dt", params.l.x);
+    params.t_end = read_value<double>("t_end", 0.0);
+
     params.ppcy = read_value<int>("ppcy", 1);
     params.ppcz = read_value<int>("ppcz", 1);
 

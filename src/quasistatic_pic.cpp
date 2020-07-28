@@ -35,7 +35,7 @@ int main(int argc, char const *argv[]) {
 
     System_3d system{params, std::cout};
 
-    system.solve_wakefield();
+    system.run();
 
     auto t_end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(t_end - t_begin).count();

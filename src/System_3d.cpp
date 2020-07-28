@@ -40,6 +40,10 @@ const std::string SUSCEPTIBILITY = "susceptibility";
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
+    dt(params.dt),
+    ppcy(params.ppcy),
+    ppcz(params.ppcz),
+    plasma_profile(params.plasma_profile),
     magnetic_field_iterations(params.magnetic_field_iterations),
     rhobunch(params.rho),
     output_parameters(params.output_parameters),
@@ -68,6 +72,12 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     out << fmt::format("Steps:               [{}, {}, {}]", d.x, d.y, d.z) << std::endl;
     out << fmt::format("Simulation box size: [{}, {}, {}]", l.x, l.y, l.z) << std::endl;
 
+    time_iterations = static_cast<int>(params.t_end / dt) + 1;
+
+    t_end = dt * (time_iterations - 1);
+
+    out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
+
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 17l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 2l * sizeof(double) * n.x * n.y * n.z;
@@ -83,8 +93,6 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     std::cout << "----------------------------------------" << std::endl;
     
-    init_particles(params.ppcy, params.ppcz, params.plasma_profile);
-
     fourier = Fourier2d(n.y, n.z);
 
     const ivector2d size_yz{n.y, n.z};
@@ -115,8 +123,14 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     init_a_sqr(params.a_sqr);
 }
 
-void System_3d::solve_wakefield() {
-    auto output_writer = Output_writer(output_parameters);
+void System_3d::run() {
+    for (int ti = 0; ti < time_iterations; ti++) {
+        solve_wakefield(ti);
+    }
+}
+
+void System_3d::solve_wakefield(int iteration) {
+    auto output_writer = Output_writer(output_parameters, iteration);
 
     std::vector<Output_reference<array3d>> output_arrays_3d;
     output_arrays_3d.push_back(Output_reference<array3d>(ASQR, &a_sqr));
@@ -138,7 +152,57 @@ void System_3d::solve_wakefield() {
         output_writer.initialize_slice_array(n, d, *(output_arr.ptr), output_arr.name);
     }
 
+    init_particles(ppcy, ppcz, plasma_profile);
     int particle_number = particles.size();
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            ex(j, k) = 0;
+        }
+    }
+    
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            psi(j, k) = 0;
+        }
+    }
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            by(j, k) = 0;
+        }
+    }
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            bz(j, k) = 0;
+        }
+    }
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            rho_ion(j, k) = 0;
+        }
+    }
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            jy(j, k) = 0;
+        }
+    }
+
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            jz(j, k) = 0;
+        }
+    }
 
     // rho_ion deposition
     #pragma omp parallel for
@@ -146,7 +210,6 @@ void System_3d::solve_wakefield() {
         auto & p = particles[pi];
         deposit(p.y, p.z, -p.n, rho_ion);
     }
-
 
     bool stop_flag = false;
     const double THRESHOLD_B = 100;

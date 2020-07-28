@@ -8,7 +8,7 @@
 
 class Output_writer {
 public:
-    Output_writer(Output_parameters output_parameters);
+    Output_writer(Output_parameters output_parameters, int count);
 
     void initialize_slice_array(ivector3d size, vector3d steps, const array2d & array, const std::string name);
     void write_array(array3d & array, std::string name);

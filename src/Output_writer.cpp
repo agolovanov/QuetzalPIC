@@ -1,5 +1,6 @@
 #include "Output_writer.h"
 
+#include <fmt/format.h>
 #include <H5Cpp.h>
 #include "array_utils.h"
 
@@ -138,13 +139,13 @@ void write_slice(const array1d & slice, int slice_index, const std::string name,
     dataset.write(&(slice(0)), H5::PredType::NATIVE_DOUBLE, memory_dataspace, write_dataspace);
 }
 
-Output_writer::Output_writer(Output_parameters output_parameters) :
+Output_writer::Output_writer(Output_parameters output_parameters, int count) :
     output_parameters(output_parameters) {
     if (output_parameters.output3d) {
-        fields_file = H5::H5File("Fields.h5", H5F_ACC_TRUNC);
+        fields_file = H5::H5File(fmt::format("Fields_{:03d}.h5", count), H5F_ACC_TRUNC);
     }
     if (output_parameters.output_xy) {
-        fields_xy_file = H5::H5File("Fields_xy.h5", H5F_ACC_TRUNC);
+        fields_xy_file = H5::H5File(fmt::format("Fields_xy_{:03d}.h5", count), H5F_ACC_TRUNC);
     }
 }
 
