@@ -41,3 +41,14 @@ struct wake_particle_2d {
     double gamma = 1;
     double px = 0;
 };
+
+struct bunch_particle_3d {
+    double x = 0;
+    double y = 0;
+    double z = 0;
+    double px = 0;
+    double py = 0;
+    double pz = 0;
+    double gamma = 1;
+    double n = 0; 
+};

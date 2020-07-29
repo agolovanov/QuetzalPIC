@@ -27,7 +27,9 @@ private:
     void solve_wakefield(int iteration);
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
-    void init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
+    void init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
+    size_t count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho);
+    void init_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho, double gamma);
     void init_a_sqr(std::function<double(double, double, double)> func);
     void increase_minimum(array3d & array, int slice, double value) const;
     void increase_minimum(array2d & array, double value) const;
@@ -50,13 +52,13 @@ private:
 
     double magnetic_field_D = 10.0;
 
-    std::function<double(double, double, double)> rhobunch;
-
     Output_parameters output_parameters;
     
     std::ostream & out;
 
     std::vector<wake_particle_2d> wake_particles;
+    std::vector<bunch_particle_3d> bunch_particles;
+
     array2d psi_middle;
     array2d djy_dxi;
     array2d djz_dxi;
@@ -64,6 +66,8 @@ private:
 
     array3d a_sqr;
     array3d susceptibility;
+    array3d rho_bunch;
+    array3d jx_bunch;
 
     array2d psi_prev;
     array2d psi;

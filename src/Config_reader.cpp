@@ -119,6 +119,12 @@ void Config_reader::init_bunch() {
         out << "Parsing [bunch] ..." << std::endl;
         auto bunch_table = config->get_table("bunch");
 
+        params.bunch_parameters.ppc.x = read_value<int>("ppcx", 1, bunch_table);
+        params.bunch_parameters.ppc.y = read_value<int>("ppcy", 1, bunch_table);
+        params.bunch_parameters.ppc.z = read_value<int>("ppcz", 1, bunch_table);
+
+        params.bunch_parameters.gamma = read_value<int>("gamma", bunch_table);
+
         const auto shape = read_value<std::string>("shape", bunch_table);
         if (shape == "gaussian") {
             const double rho0 = read_value<double>("rho0", bunch_table);
@@ -133,7 +139,7 @@ void Config_reader::init_bunch() {
             // conversion from full width at 1/e^2 to Gauss paramters
             width /= sqrt(8.0);
             
-            params.rho = gaussian3d(rho0, width, {x0, y0, z0});
+            params.bunch_parameters.rho = gaussian3d(rho0, width, {x0, y0, z0});
         } else {
             throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\".", shape));
         }

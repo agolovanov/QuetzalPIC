@@ -16,7 +16,7 @@
 
 std::string memory_formatter(long bytes) {
     double res = bytes;
-    const std::vector<std::string> prefixes {"b", "KiB", "MiB", "GiB", "TiB", "PiB"};
+    const std::vector<std::string> prefixes {"  B", "KiB", "MiB", "GiB", "TiB", "PiB"};
     int index = 0;
     while (res > 1024) {
         res /= 1024;
@@ -37,6 +37,8 @@ const std::string JX = "jx";
 const std::string JY = "jy";
 const std::string JZ = "jz";
 const std::string SUSCEPTIBILITY = "susceptibility";
+const std::string RHO_BUNCH = "rho_bunch";
+const std::string JX_BUNCH = "jx_bunch";
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
@@ -45,7 +47,6 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     ppcz(params.ppcz),
     plasma_profile(params.plasma_profile),
     magnetic_field_iterations(params.magnetic_field_iterations),
-    rhobunch(params.rho),
     output_parameters(params.output_parameters),
     out(out)
 {
@@ -78,20 +79,29 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
 
+    auto bunch_particles_count = count_bunch_particles(params.bunch_parameters.ppc, params.bunch_parameters.rho);
+
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 17l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 2l * sizeof(double) * n.x * n.y * n.z;
-    const long particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
-    const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
+    const long array3d_memory = 4l * sizeof(double) * n.x * n.y * n.z;
+    const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
+    const long bunch_particle_memory = static_cast<long>(sizeof(bunch_particle_3d)) * bunch_particles_count;
+    const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
 
     out << "Expected RAM usage:\n";
-    out << fmt::format("3D arrays: {}\n", memory_formatter(array3d_memory))
-        << fmt::format("2D arrays: {}\n", memory_formatter(array2d_memory))
-        << fmt::format("Fourier:   {}\n", memory_formatter(fourier_memory))
-        << fmt::format("Particles: {}\n", memory_formatter(particle_memory))
-        << fmt::format("Total:     {}", memory_formatter(total_memory)) << std::endl;
+    out << fmt::format("3D arrays:       {}\n", memory_formatter(array3d_memory))
+        << fmt::format("2D arrays:       {}\n", memory_formatter(array2d_memory))
+        << fmt::format("Fourier:         {}\n", memory_formatter(fourier_memory))
+        << fmt::format("Wake particles:  {}\n", memory_formatter(wake_particle_memory))
+        << fmt::format("Bunch particles: {}\n", memory_formatter(bunch_particle_memory))
+        << fmt::format("Total:           {}", memory_formatter(total_memory)) << std::endl;
 
     std::cout << "----------------------------------------" << std::endl;
+
+
+    bunch_particles = std::vector<bunch_particle_3d>{bunch_particles_count};
+
+    init_bunch_particles(params.bunch_parameters.ppc, params.bunch_parameters.rho, params.bunch_parameters.gamma);
     
     fourier = Fourier2d(n.y, n.z);
 
@@ -105,6 +115,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     a_sqr = array3d(n, d);
     susceptibility = array3d(n, d);
+    rho_bunch = array3d(n, d);
+    jx_bunch = array3d(n, d);
 
     psi = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
     psi_prev = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
@@ -125,6 +137,25 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
 void System_3d::run() {
     for (int ti = 0; ti < time_iterations; ti++) {
+        #pragma omp parallel for
+        for (int i = 0; i < n.x; i++) {
+            for (int j = 0; j < n.y; j++) {
+                for (int k = 0; k < n.z; k++) {
+                    rho_bunch(i, j, k) = 0.0;
+                    jx_bunch(i, j, k) = 0.0;
+                }
+            }
+        }
+
+        const int bunch_particles_count = bunch_particles.size();
+
+        #pragma omp parallel for
+        for (int pi = 0; pi < bunch_particles_count; pi++) {
+            auto & p = bunch_particles[pi];
+            deposit(p.x, p.y, p.z, -p.n, rho_bunch);
+            deposit(p.x, p.y, p.z, -p.n * p.px / p.gamma, jx_bunch);
+        }
+
         solve_wakefield(ti);
     }
 }
@@ -135,6 +166,8 @@ void System_3d::solve_wakefield(int iteration) {
     std::vector<Output_reference<array3d>> output_arrays_3d;
     output_arrays_3d.push_back(Output_reference<array3d>(ASQR, &a_sqr));
     output_arrays_3d.push_back(Output_reference<array3d>(SUSCEPTIBILITY, &susceptibility));
+    output_arrays_3d.push_back(Output_reference<array3d>(RHO_BUNCH, &rho_bunch));
+    output_arrays_3d.push_back(Output_reference<array3d>(JX_BUNCH, &jx_bunch));
 
     std::vector<Output_reference<array2d>> output_arrays_2d;
     output_arrays_2d.push_back(Output_reference<array2d>(PSI, &psi));
@@ -152,7 +185,7 @@ void System_3d::solve_wakefield(int iteration) {
         output_writer.initialize_slice_array(n, d, *(output_arr.ptr), output_arr.name);
     }
 
-    init_particles(ppcy, ppcz, plasma_profile);
+    init_wake_particles(ppcy, ppcz, plasma_profile);
     int particle_number = wake_particles.size();
 
     #pragma omp parallel for
@@ -273,8 +306,8 @@ void System_3d::solve_wakefield(int iteration) {
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                jx(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
-                rho(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                rho(j, k) = rho_bunch(i, j, k);
+                jx(j, k) = jx_bunch(i, j, k);
                 susceptibility(i, j, k) = 0.0;
             }
         }
@@ -392,8 +425,8 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    jx(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
-                    rho(j, k) = rhobunch(i * d.x, j * d.y, k * d.z);
+                    rho(j, k) = rho_bunch(i, j, k);
+                    jx(j, k) = jx_bunch(i, j, k);
                     susceptibility(i, j, k) = 0.0;
                 }
             }
@@ -585,7 +618,7 @@ void System_3d::solve_poisson_equation(double D) {
     fourier.backward_transform();
 }
 
-void System_3d::init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
+void System_3d::init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
     assert(ppcy > 0);
     assert(ppcz > 0);
     wake_particles = std::vector<wake_particle_2d>(n.y * n.z * ppcy * ppcz);
@@ -599,6 +632,57 @@ void System_3d::init_particles(int ppcy, int ppcz, std::function<double(double, 
             wake_particles[index].y = y;
             wake_particles[index].z = z;
             wake_particles[index].n = value / ppcy / ppcz;
+        }
+    }
+}
+
+size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho) {
+    assert(ppc.x > 0);
+    assert(ppc.y > 0);
+    assert(ppc.z > 0);
+    
+    size_t count = 0;
+    for (int i = 0; i < ppc.x * n.x; i++) {
+        for (int j = 0; j < ppc.y * n.y; j++) {
+            for (int k = 0; k < ppc.z * n.z; k++) {
+                const double x = (i + 0.5) * d.x / ppc.x;
+                const double y = (j + 0.5) * d.y / ppc.y;
+                const double z = (k + 0.5) * d.z / ppc.z;
+                if (rho(x, y, z) != 0.0) {
+                    count++;
+                }
+            }
+        }
+    }
+    return count;
+}
+
+void System_3d::init_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho, double gamma) {
+    assert(ppc.x > 0);
+    assert(ppc.y > 0);
+    assert(ppc.z > 0);
+    
+    int index = 0;
+    for (int i = 0; i < ppc.x * n.x; i++) {
+        for (int j = 0; j < ppc.y * n.y; j++) {
+            for (int k = 0; k < ppc.z * n.z; k++) {
+                const double x = (i + 0.5) * d.x / ppc.x;
+                const double y = (j + 0.5) * d.y / ppc.y;
+                const double z = (k + 0.5) * d.z / ppc.z;
+                double value = rho(x, y, z);
+                if (value != 0.0) {
+                    bunch_particles[index].x = x;
+                    bunch_particles[index].y = y;
+                    bunch_particles[index].z = z;
+                    bunch_particles[index].px = 0;
+                    bunch_particles[index].py = 0;
+                    bunch_particles[index].pz = 0;
+                    bunch_particles[index].gamma = gamma;
+                    bunch_particles[index].px = sqrt(gamma * gamma - 1);
+                    bunch_particles[index].n = -value / ppc.x / ppc.y / ppc.z;
+                    index++;
+                }
+            }
         }
     }
 }

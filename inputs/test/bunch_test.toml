@@ -11,6 +11,7 @@ ppcz = 1
 magnetic_field_iterations = 5
 
 [bunch]
+gamma = 1000
 shape = "gaussian"
 rho0 = -3
 xsigma = 4
