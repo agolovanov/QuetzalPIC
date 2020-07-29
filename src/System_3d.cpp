@@ -81,7 +81,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 17l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 2l * sizeof(double) * n.x * n.y * n.z;
-    const long particle_memory = static_cast<long>(sizeof(particle)) * params.ppcy * params.ppcz * n.y * n.z;
+    const long particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
     const long total_memory = array2d_memory + array3d_memory + particle_memory + fourier_memory;
 
     out << "Expected RAM usage:\n";
@@ -153,7 +153,7 @@ void System_3d::solve_wakefield(int iteration) {
     }
 
     init_particles(ppcy, ppcz, plasma_profile);
-    int particle_number = particles.size();
+    int particle_number = wake_particles.size();
 
     #pragma omp parallel for
     for (int j = 0; j < n.y; j++) {
@@ -207,7 +207,7 @@ void System_3d::solve_wakefield(int iteration) {
     // rho_ion deposition
     #pragma omp parallel for
     for (int pi = 0; pi < particle_number; pi++) {
-        auto & p = particles[pi];
+        auto & p = wake_particles[pi];
         deposit(p.y, p.z, -p.n, rho_ion);
     }
 
@@ -235,7 +235,7 @@ void System_3d::solve_wakefield(int iteration) {
         // psi source deposition
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
-            auto & p = particles[pi];
+            auto & p = wake_particles[pi];
             deposit(p.y, p.z, -p.n, fourier.in, {d.y, d.z}, {n.y, n.z});
         }
 
@@ -259,7 +259,7 @@ void System_3d::solve_wakefield(int iteration) {
         // calculate initial gamma, px
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
-            auto & p = particles[pi];
+            auto & p = wake_particles[pi];
             double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
             double psi_particle = array_to_particle(p.y, p.z, psi);
             p.gamma = 0.5 * (1 + p.py * p.py + p.pz * p.pz + a_particle + (1 + psi_particle) * (1 + psi_particle))
@@ -281,7 +281,7 @@ void System_3d::solve_wakefield(int iteration) {
 
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
-            auto & p = particles[pi];
+            auto & p = wake_particles[pi];
             double vx = p.px / p.gamma;
             deposit(p.y, p.z, p.n * vx / (1 - vx), jx);
             deposit(p.y, p.z, p.n / (1 - vx), rho);
@@ -297,7 +297,7 @@ void System_3d::solve_wakefield(int iteration) {
             // advance momenta
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 double psi_particle = array_to_particle(p.y, p.z, psi);
                 double da_dy_particle = array_yder_to_particle(p.y, p.z, a_sqr, i);
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
@@ -317,7 +317,7 @@ void System_3d::solve_wakefield(int iteration) {
             // advance half coordinate
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 double psi_particle = array_to_particle(p.y, p.z, psi);
                 p.y_middle = p.y + 0.5 * d.x * p.py_next / (1 + psi_particle);
                 p.z_middle = p.z + 0.5 * d.x * p.pz_next / (1 + psi_particle);
@@ -334,7 +334,7 @@ void System_3d::solve_wakefield(int iteration) {
 
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 deposit(p.y_middle, p.z_middle, -p.n, fourier.in, {d.y, d.z}, {n.y, n.z});
             }
 
@@ -360,7 +360,7 @@ void System_3d::solve_wakefield(int iteration) {
 
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 double psi_particle = array_to_particle(p.y_middle, p.z_middle, psi_middle);
                 deposit(p.y_middle, p.z_middle, p.n * p.py_next / (1 + psi_particle), jy_next);
                 deposit(p.y_middle, p.z_middle, p.n * p.pz_next / (1 + psi_particle), jz_next);
@@ -378,7 +378,7 @@ void System_3d::solve_wakefield(int iteration) {
             // calculate new gamma, px
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 double a_particle = array_to_particle(p.y, p.z, a_sqr, i);
                 double psi_particle = array_to_particle(p.y, p.z, psi);
                 double p_squared = 0.25 * (p.py + p.py_next) * (p.py + p.py_next) + 0.25 * (p.pz + p.pz_next) * (p.pz + p.pz_next);
@@ -400,7 +400,7 @@ void System_3d::solve_wakefield(int iteration) {
 
             #pragma omp parallel for
             for (int pi = 0; pi < particle_number; pi++) {
-                auto & p = particles[pi];
+                auto & p = wake_particles[pi];
                 double vx = p.px / p.gamma;
                 deposit(p.y, p.z, p.n * vx / (1 - vx), jx);
                 deposit(p.y, p.z, p.n / (1 - vx), rho);
@@ -473,7 +473,7 @@ void System_3d::solve_wakefield(int iteration) {
 
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
-            auto & p = particles[pi];
+            auto & p = wake_particles[pi];
             p.py = p.py_next;
             p.pz = p.pz_next;
         }
@@ -481,7 +481,7 @@ void System_3d::solve_wakefield(int iteration) {
         // advance coordinate
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
-            auto & p = particles[pi];
+            auto & p = wake_particles[pi];
             double psi_particle = array_to_particle(p.y, p.z, psi_middle);
             p.y += d.x * p.py / (1 + psi_particle);
             p.z += d.x * p.pz / (1 + psi_particle);
@@ -588,7 +588,7 @@ void System_3d::solve_poisson_equation(double D) {
 void System_3d::init_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
     assert(ppcy > 0);
     assert(ppcz > 0);
-    particles = std::vector<particle>(n.y * n.z * ppcy * ppcz);
+    wake_particles = std::vector<wake_particle_2d>(n.y * n.z * ppcy * ppcz);
 
     for (int i = 0; i < ppcy * n.y; i++) {
         for (int j = 0; j < ppcz * n.z; j++) {
@@ -596,9 +596,9 @@ void System_3d::init_particles(int ppcy, int ppcz, std::function<double(double, 
             const double y = (i + 0.5) * d.y / ppcy;
             const double z = (j + 0.5) * d.z / ppcz;
             double value = plasma_profile(y, z);
-            particles[index].y = y;
-            particles[index].z = z;
-            particles[index].n = value / ppcy / ppcz;
+            wake_particles[index].y = y;
+            wake_particles[index].z = z;
+            wake_particles[index].n = value / ppcy / ppcz;
         }
     }
 }

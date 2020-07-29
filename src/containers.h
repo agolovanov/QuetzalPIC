@@ -28,7 +28,7 @@ enum class Axis {
     NONE=0, X=1, Y=1, Z=1
 };
 
-struct particle {
+struct wake_particle_2d {
     double y = 0;
     double y_middle = 0;
     double z = 0;

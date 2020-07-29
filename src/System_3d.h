@@ -56,7 +56,7 @@ private:
     
     std::ostream & out;
 
-    std::vector<particle> particles;
+    std::vector<wake_particle_2d> wake_particles;
     array2d psi_middle;
     array2d djy_dxi;
     array2d djz_dxi;
