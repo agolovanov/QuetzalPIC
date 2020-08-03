@@ -68,6 +68,11 @@ private:
     array3d susceptibility;
     array3d rho_bunch;
     array3d jx_bunch;
+    array3d ex;
+    array3d ey;
+    array3d ez;
+    array3d by;
+    array3d bz;
 
     array2d psi_prev;
     array2d psi;
@@ -77,11 +82,6 @@ private:
     array2d jy_next;
     array2d jz_next;
     array2d rho;
-    array2d ex;
-    array2d ey;
-    array2d ez;
-    array2d by;
-    array2d bz;
 
     Fourier2d fourier;
 };

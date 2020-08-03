@@ -82,8 +82,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     auto bunch_particles_count = count_bunch_particles(params.bunch_parameters.ppc, params.bunch_parameters.rho);
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
-    const long array2d_memory = 17l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 4l * sizeof(double) * n.x * n.y * n.z;
+    const long array2d_memory = 12l * sizeof(double) * n.y * n.z;
+    const long array3d_memory = 9l * sizeof(double) * n.x * n.y * n.z;
     const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
     const long bunch_particle_memory = static_cast<long>(sizeof(bunch_particle_3d)) * bunch_particles_count;
     const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
@@ -96,7 +96,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
         << fmt::format("Bunch particles: {}\n", memory_formatter(bunch_particle_memory))
         << fmt::format("Total:           {}", memory_formatter(total_memory)) << std::endl;
 
-    std::cout << "----------------------------------------" << std::endl;
+    out << "----------------------------------------" << std::endl;
 
 
     bunch_particles = std::vector<bunch_particle_3d>{bunch_particles_count};
@@ -117,6 +117,11 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     susceptibility = array3d(n, d);
     rho_bunch = array3d(n, d);
     jx_bunch = array3d(n, d);
+    by = array3d(n, d, {0, 0, 0.5 * d.z});
+    bz = array3d(n, d, {0, 0.5 * d.y, 0});
+    ex = array3d(n, d, {-0.5 * d.x, 0, 0});
+    ey = array3d(n, d, {0, 0.5 * d.y, 0});
+    ez = array3d(n, d, {0, 0, 0.5 * d.z});
 
     psi = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
     psi_prev = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
@@ -126,17 +131,17 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     jz = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
     jy_next = array2d(size_yz, d, {-0.5 * d.x, 0.5 * d.y, 0}, Plane::YZ);
     jz_next = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
-    by = array2d(size_yz, d, {0, 0, 0.5 * d.z}, Plane::YZ);
-    bz = array2d(size_yz, d, {0, 0.5 * d.y, 0}, Plane::YZ);
-    ex = array2d(size_yz, d, {-0.5 * d.x, 0, 0}, Plane::YZ);
-    ey = array2d(size_yz, d, {0, 0.5 * d.y, 0}, Plane::YZ);
-    ez = array2d(size_yz, d, {0, 0, 0.5 * d.z}, Plane::YZ);
+
 
     init_a_sqr(params.a_sqr);
 }
 
 void System_3d::run() {
     for (int ti = 0; ti < time_iterations; ti++) {
+        out << "Iteration " << ti << std::endl;
+
+        out << "Depositing densities..." << std::endl;
+
         #pragma omp parallel for
         for (int i = 0; i < n.x; i++) {
             for (int j = 0; j < n.y; j++) {
@@ -156,7 +161,34 @@ void System_3d::run() {
             deposit(p.x, p.y, p.z, -p.n * p.px / p.gamma, jx_bunch);
         }
 
+        out << "Solving wakefield..." << std::endl;
+
         solve_wakefield(ti);
+
+        if (ti < time_iterations - 1) {
+            out << "Updating particles..." << std::endl;
+
+            #pragma omp parallel for
+            for (int pi = 0; pi < bunch_particles_count; pi++) {
+                auto & p = bunch_particles[pi];
+                const double ex_particle = array_to_particle(p.x, p.y, p.z, ex);
+                const double ey_particle = array_to_particle(p.x, p.y, p.z, ey);
+                const double ez_particle = array_to_particle(p.x, p.y, p.z, ez);
+                const double by_particle = array_to_particle(p.x, p.y, p.z, by);
+                const double bz_particle = array_to_particle(p.x, p.y, p.z, bz);
+                const double fx = - ex_particle - (p.py * bz_particle - p.pz * by_particle) / p.gamma;
+                const double fy = - ey_particle + p.px * bz_particle / p.gamma;
+                const double fz = - ez_particle - p.px * by_particle / p.gamma;
+
+                p.x += dt * (p.px / p.gamma - 1);
+                p.y += dt * p.py / p.gamma;
+                p.z += dt * p.pz / p.gamma;
+                p.px += dt * fx;
+                p.py += dt * fy;
+                p.pz += dt * fz;
+                p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+            }
+        }
     }
 }
 
@@ -168,6 +200,11 @@ void System_3d::solve_wakefield(int iteration) {
     output_arrays_3d.push_back(Output_reference<array3d>(SUSCEPTIBILITY, &susceptibility));
     output_arrays_3d.push_back(Output_reference<array3d>(RHO_BUNCH, &rho_bunch));
     output_arrays_3d.push_back(Output_reference<array3d>(JX_BUNCH, &jx_bunch));
+    output_arrays_3d.push_back(Output_reference<array3d>(EX, &ex));
+    output_arrays_3d.push_back(Output_reference<array3d>(EY, &ey));
+    output_arrays_3d.push_back(Output_reference<array3d>(EZ, &ez));
+    output_arrays_3d.push_back(Output_reference<array3d>(BY, &by));
+    output_arrays_3d.push_back(Output_reference<array3d>(BZ, &bz));
 
     std::vector<Output_reference<array2d>> output_arrays_2d;
     output_arrays_2d.push_back(Output_reference<array2d>(PSI, &psi));
@@ -175,11 +212,6 @@ void System_3d::solve_wakefield(int iteration) {
     output_arrays_2d.push_back(Output_reference<array2d>(JX, &jx));
     output_arrays_2d.push_back(Output_reference<array2d>(JY, &jy));
     output_arrays_2d.push_back(Output_reference<array2d>(JZ, &jz));
-    output_arrays_2d.push_back(Output_reference<array2d>(EX, &ex));
-    output_arrays_2d.push_back(Output_reference<array2d>(EY, &ey));
-    output_arrays_2d.push_back(Output_reference<array2d>(EZ, &ez));
-    output_arrays_2d.push_back(Output_reference<array2d>(BY, &by));
-    output_arrays_2d.push_back(Output_reference<array2d>(BZ, &bz));
 
     for (auto & output_arr : output_arrays_2d) {
         output_writer.initialize_slice_array(n, d, *(output_arr.ptr), output_arr.name);
@@ -191,7 +223,7 @@ void System_3d::solve_wakefield(int iteration) {
     #pragma omp parallel for
     for (int j = 0; j < n.y; j++) {
         for (int k = 0; k < n.z; k++) {
-            ex(j, k) = 0;
+            ex(n.x - 1, j, k) = 0;
         }
     }
     
@@ -203,16 +235,20 @@ void System_3d::solve_wakefield(int iteration) {
     }
 
     #pragma omp parallel for
-    for (int j = 0; j < n.y; j++) {
-        for (int k = 0; k < n.z; k++) {
-            by(j, k) = 0;
+    for (int i = 0; i < n.x; i++) {
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                by(i, j, k) = 0;
+            }
         }
     }
 
     #pragma omp parallel for
-    for (int j = 0; j < n.y; j++) {
-        for (int k = 0; k < n.z; k++) {
-            bz(j, k) = 0;
+    for (int i = 0; i < n.x; i++) {
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                bz(i, j, k) = 0;
+            }
         }
     }
 
@@ -321,6 +357,16 @@ void System_3d::solve_wakefield(int iteration) {
             deposit(p.y, p.z, -p.n / (1 - vx) / p.gamma, susceptibility, i);
         }
 
+        if (i < n.x - 1) {
+            #pragma omp parallel for
+            for (int j = 0; j < n.y; j++) {
+                for (int k = 0; k < n.z; k++) {
+                    by(i, j, k) = by(i+1, j, k);
+                    bz(i, j, k) = bz(i+1, j, k);
+                }
+            }
+        }
+
         if (i == 0) {
             break;
         }
@@ -336,8 +382,8 @@ void System_3d::solve_wakefield(int iteration) {
                 double da_dz_particle = array_zder_to_particle(p.y, p.z, a_sqr, i);
                 double dpsi_dy_particle = array_yder_to_particle(p.y, p.z, psi);
                 double dpsi_dz_particle = array_zder_to_particle(p.y, p.z, psi);
-                double by_particle = array_to_particle(p.y, p.z, by);
-                double bz_particle = array_to_particle(p.y, p.z, bz);
+                double by_particle = array_to_particle(p.y, p.z, by, i);
+                double bz_particle = array_to_particle(p.y, p.z, bz, i);
 
                 p.py_next = p.py - d.x * 0.5 * da_dy_particle / (1 + psi_particle);
                 p.py_next += d.x * p.gamma * dpsi_dy_particle / (1 + psi_particle);
@@ -444,9 +490,9 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z-1; k++) {
-                    fourier.in[n.z * j + k] = - magnetic_field_D * by(j, k) - (jx(j, k+1) - jx(j, k)) / d.z + djz_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * by(i, j, k) - (jx(j, k+1) - jx(j, k)) / d.z + djz_dxi(j, k);
                 }
-                fourier.in[n.z * j + (n.z-1)] = - magnetic_field_D * by(j, n.z-1) - (jx(j, 0) - jx(j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
+                fourier.in[n.z * j + (n.z-1)] = - magnetic_field_D * by(i, j, n.z-1) - (jx(j, 0) - jx(j, n.z-1)) / d.z + djz_dxi(j, n.z-1);
             }
 
             // new guess for B_y
@@ -455,11 +501,11 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    by(j, k) = fourier.in[n.z * j + k] / n.y / n.z;
-                    if (fabs(by(j, k)) > THRESHOLD_B) {
+                    by(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(by(i, j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
-                    if (std::isnan(by(j, k))) {
+                    if (std::isnan(by(i, j, k))) {
                         stop_flag = true;
                     }
                 }
@@ -469,12 +515,12 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for
             for (int j = 0; j < n.y-1; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fourier.in[n.z * j + k] = - magnetic_field_D * bz(j, k) + (jx(j+1, k) - jx(j, k)) / d.y - djy_dxi(j, k);
+                    fourier.in[n.z * j + k] = - magnetic_field_D * bz(i, j, k) + (jx(j+1, k) - jx(j, k)) / d.y - djy_dxi(j, k);
                 }
             }
             #pragma omp parallel for
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * (n.y-1) + k] = - magnetic_field_D * bz(0, k) + (jx(0, k) - jx(n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
+                fourier.in[n.z * (n.y-1) + k] = - magnetic_field_D * bz(i, 0, k) + (jx(0, k) - jx(n.y-1, k)) / d.y - djy_dxi(n.y-1, k);
             }
 
             // new guess for B_z
@@ -483,11 +529,11 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for shared(stop_flag)
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    bz(j, k) = fourier.in[n.z * j + k] / n.y / n.z;
-                    if (fabs(bz(j, k)) > THRESHOLD_B) {
+                    bz(i, j, k) = fourier.in[n.z * j + k] / n.y / n.z;
+                    if (fabs(bz(i, j, k)) > THRESHOLD_B) {
                         stop_flag = true;
                     }
-                    if (std::isnan(bz(j, k))) {
+                    if (std::isnan(bz(i, j, k))) {
                         stop_flag = true;
                     }
                 }
@@ -548,7 +594,7 @@ void System_3d::output_step(Output_writer & output_writer,
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                ex(j, k) = (psi(j, k) - psi_prev(j, k)) / d.x;
+                ex(i, j, k) = (psi(j, k) - psi_prev(j, k)) / d.x;
             }
         }
     }
@@ -557,20 +603,20 @@ void System_3d::output_step(Output_writer & output_writer,
     #pragma omp parallel for
     for (int j = 0; j < n.y-1; j++) {
         for (int k = 0; k < n.z; k++) {
-            ey(j, k) = -(psi(j+1, k) - psi(j, k)) / d.y + bz(j, k);
+            ey(i, j, k) = -(psi(j+1, k) - psi(j, k)) / d.y + bz(i, j, k);
         }
     }
     for (int k = 0; k < n.z; k++) {
-        ey(n.y-1, k) = -(psi(0, k) - psi(n.y-1, k)) / d.y + bz(n.y-1, k);
+        ey(i, n.y-1, k) = -(psi(0, k) - psi(n.y-1, k)) / d.y + bz(i, n.y-1, k);
     }
     
     // calculate ez
     #pragma omp parallel for
     for (int j = 0; j < n.y; j++) {
         for (int k = 0; k < n.z-1; k++) {
-            ez(j, k) = -(psi(j, k+1) - psi(j, k)) / d.z - by(j, k);
+            ez(i, j, k) = -(psi(j, k+1) - psi(j, k)) / d.z - by(i, j, k);
         }
-        ez(j, n.z-1) = -(psi(j, 0) - psi(j, n.z-1)) / d.z - by(j, n.z-1);
+        ez(i, j, n.z-1) = -(psi(j, 0) - psi(j, n.z-1)) / d.z - by(i, j, n.z-1);
     }
     
     for (auto & output_arr : output_arrays_2d) {

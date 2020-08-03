@@ -336,3 +336,40 @@ void deposit(double x, double y, double z, double value, array3d & array) {
     #pragma omp atomic update
     array(i2, j2, k2) += value * x_frac * y_frac * z_frac;
 }
+
+double array_to_particle(double x, double y, double z, const array3d & array) {
+    const auto d = array.get_steps();
+    const auto n = array.get_dimensions();
+    const auto origin = array.get_origin();
+
+    int i1 = (int) floor((x - origin.x) / d.x);
+    int i2 = (i1 + 1);
+    double x_frac = (x - origin.x) / d.x - i1;
+
+    if ((i1 < 0) || (i2 >= n.x)) {
+        return 0.0;
+    }
+    
+    int j1 = (int) floor((y - origin.y) / d.y);
+    int j2 = (j1 + 1) % n.y;
+    double y_frac = (y - origin.y) / d.y - j1;
+    if (j1 < 0) {
+        j1 += n.y;
+    }
+
+    int k1 = (int) floor((z - origin.z) / d.z);
+    int k2 = (k1 + 1) % n.z;
+    double z_frac = (z - origin.z) / d.z - k1;
+    if (k1 < 0) {
+        k1 += n.z;
+    }
+
+    return array(i1, j1, k1) * (1 - x_frac) * (1 - y_frac) * (1 - z_frac) + 
+           array(i1, j2, k1) * (1 - x_frac) * y_frac * (1 - z_frac) +
+           array(i1, j1, k2) * (1 - x_frac) * (1 - y_frac) * z_frac + 
+           array(i1, j2, k2) * (1 - x_frac) * y_frac * z_frac +
+           array(i2, j1, k1) * x_frac * (1 - y_frac) * (1 - z_frac) + 
+           array(i2, j2, k1) * x_frac * y_frac * (1 - z_frac) +
+           array(i2, j1, k2) * x_frac * (1 - y_frac) * z_frac + 
+           array(i2, j2, k2) * x_frac * y_frac * z_frac;
+}

@@ -20,3 +20,4 @@ double array_zder_to_particle(double y, double z, const array3d & array, int sli
 double array_yder_to_particle(double y, double z, const array2d & array);
 double array_zder_to_particle(double y, double z, const array2d & array);
 void deposit(double x, double y, double z, double value, array3d & array);
+double array_to_particle(double x, double y, double z, const array3d & array);
