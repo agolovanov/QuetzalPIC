@@ -79,13 +79,24 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
 
-    auto bunch_particles_count = count_bunch_particles(params.bunch_parameters.ppc, params.bunch_parameters.rho);
+    const int bunches_count = params.bunch_parameters_array.size();
+    std::vector<size_t> bunch_particles_count_array(bunches_count);
+    size_t bunch_particles_count = 0;
+    std::vector<long> bunch_particle_memory_array(bunches_count);
+    long bunch_particle_memory = 0;
+    
+    for (int i = 0; i < bunches_count; i++) {
+        const auto & bunch = params.bunch_parameters_array[i];
+        bunch_particles_count_array[i] = count_bunch_particles(bunch.ppc, bunch.rho);
+        bunch_particles_count += bunch_particles_count_array[i];
+        bunch_particle_memory_array[i] = static_cast<long>(sizeof(bunch_particle_3d)) * bunch_particles_count_array[i];
+        bunch_particle_memory += bunch_particle_memory_array[i];
+    }
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 12l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 9l * sizeof(double) * n.x * n.y * n.z;
     const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
-    const long bunch_particle_memory = static_cast<long>(sizeof(bunch_particle_3d)) * bunch_particles_count;
     const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
 
     out << "Expected RAM usage:\n";
@@ -101,7 +112,13 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     bunch_particles = std::vector<bunch_particle_3d>{bunch_particles_count};
 
-    init_bunch_particles(params.bunch_parameters.ppc, params.bunch_parameters.rho, params.bunch_parameters.gamma);
+    size_t index = 0;
+    for (int i = 0; i < bunches_count; i++) {
+        const auto & bunch = params.bunch_parameters_array[i];
+        init_bunch_particles(index, bunch.ppc, bunch.rho, bunch.gamma);
+        index += bunch_particles_count_array[i];
+    }
+    
     
     fourier = Fourier2d(n.y, n.z);
 
@@ -703,12 +720,11 @@ size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(doub
     return count;
 }
 
-void System_3d::init_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho, double gamma) {
+void System_3d::init_bunch_particles(size_t index, ivector3d ppc, std::function<double(double, double, double)> rho, double gamma) {
     assert(ppc.x > 0);
     assert(ppc.y > 0);
     assert(ppc.z > 0);
     
-    int index = 0;
     for (int i = 0; i < ppc.x * n.x; i++) {
         for (int j = 0; j < ppc.y * n.y; j++) {
             for (int k = 0; k < ppc.z * n.z; k++) {

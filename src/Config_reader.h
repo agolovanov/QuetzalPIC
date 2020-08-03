@@ -29,6 +29,7 @@ private:
     template <class T>
     T read_value(const std::string & name, T default_value, std::shared_ptr<cpptoml::table> table);
     void init_laser();
+    Bunch_parameters parse_bunch_table(std::shared_ptr<cpptoml::table> bunch_table);
     void init_bunch();
     void init_output_parameters();
     void init_plasma_profile();

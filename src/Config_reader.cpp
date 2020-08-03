@@ -114,47 +114,71 @@ void Config_reader::init_laser() {
     }
 }
 
-void Config_reader::init_bunch() {
-    if (config->contains("bunch")) {
-        out << "Parsing [bunch] ..." << std::endl;
-        auto bunch_table = config->get_table("bunch");
+Bunch_parameters Config_reader::parse_bunch_table(std::shared_ptr<cpptoml::table> bunch_table) {
+    Bunch_parameters bunch_parameters;
+    bunch_parameters.ppc.x = read_value<int>("ppcx", 1, bunch_table);
+    bunch_parameters.ppc.y = read_value<int>("ppcy", 1, bunch_table);
+    bunch_parameters.ppc.z = read_value<int>("ppcz", 1, bunch_table);
 
-        params.bunch_parameters.ppc.x = read_value<int>("ppcx", 1, bunch_table);
-        params.bunch_parameters.ppc.y = read_value<int>("ppcy", 1, bunch_table);
-        params.bunch_parameters.ppc.z = read_value<int>("ppcz", 1, bunch_table);
+    bunch_parameters.gamma = read_value<int>("gamma", bunch_table);
 
-        params.bunch_parameters.gamma = read_value<int>("gamma", bunch_table);
+    const auto shape = read_value<std::string>("shape", bunch_table);
+    if (shape == "gaussian") {
+        const double rho0 = read_value<double>("rho0", bunch_table);
+        const double xsigma = read_value<double>("xsigma", bunch_table);
+        const double ysigma = read_value<double>("ysigma", bunch_table);
+        const double zsigma = read_value<double>("zsigma", bunch_table);
+        const double x0 = read_value<double>("x0", xsigma, bunch_table);
+        const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
+        const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
+        
+        vector3d width{xsigma, ysigma, zsigma};
+        // conversion from full width at 1/e^2 to Gauss paramters
+        width /= sqrt(8.0);
+        
+        bunch_parameters.rho = gaussian3d(rho0, width, {x0, y0, z0});
+    } else if (shape == "parabolic") {
+        const double rho0 = read_value<double>("rho0", bunch_table);
+        const double xsize = read_value<double>("xsize", bunch_table);
+        const double rsize = read_value<double>("rsize", bunch_table);
+        const double x0 = read_value<double>("x0", bunch_table);
+        const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
+        const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
 
-        const auto shape = read_value<std::string>("shape", bunch_table);
-        if (shape == "gaussian") {
-            const double rho0 = read_value<double>("rho0", bunch_table);
-            const double xsigma = read_value<double>("xsigma", bunch_table);
-            const double ysigma = read_value<double>("ysigma", bunch_table);
-            const double zsigma = read_value<double>("zsigma", bunch_table);
-            const double x0 = read_value<double>("x0", xsigma, bunch_table);
-            const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
-            const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
-            
-            vector3d width{xsigma, ysigma, zsigma};
-            // conversion from full width at 1/e^2 to Gauss paramters
-            width /= sqrt(8.0);
-            
-            params.bunch_parameters.rho = gaussian3d(rho0, width, {x0, y0, z0});
-        } else if (shape == "parabolic") {
-            const double rho0 = read_value<double>("rho0", bunch_table);
-            const double xsize = read_value<double>("xsize", bunch_table);
-            const double rsize = read_value<double>("rsize", bunch_table);
-            const double x0 = read_value<double>("x0", bunch_table);
-            const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
-            const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
-
-            params.bunch_parameters.rho = parabolic3d(rho0, xsize, rsize, {x0, y0, z0});
-        } else {
-            throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\" or \"parabolic\".", shape));
-        }
-
+        bunch_parameters.rho = parabolic3d(rho0, xsize, rsize, {x0, y0, z0});
     } else {
-        out << "No [bunch] block in config" << std::endl;
+        throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\" or \"parabolic\".", shape));
+    }
+    return bunch_parameters;
+}
+
+void Config_reader::init_bunch() {
+    const std::string BUNCH_STR = "bunch";
+    if (config->contains(BUNCH_STR)) {
+        auto bunch_element = config->get(BUNCH_STR);
+        if (bunch_element->is_table()) {
+            out << "Parsing [" << BUNCH_STR << "] ..." << std::endl;
+
+            auto bunch_table = config->get_table(BUNCH_STR);
+
+            params.bunch_parameters_array.push_back(parse_bunch_table(bunch_table));
+        } else if (bunch_element->is_table_array()) {
+            out << "Parsing [[" << BUNCH_STR << "]] ..." << std::endl;
+
+            auto bunch_table_array = config->get_table_array(BUNCH_STR)->get();
+            const int array_size = bunch_table_array.size();
+
+            out << "Size " << array_size << std::endl;
+
+            for (int i = 0; i < array_size; i++) {
+                out << "Parsing element " << i << "..." << std::endl;
+                params.bunch_parameters_array.push_back(parse_bunch_table(bunch_table_array[i]));
+            }
+        } else {
+            out << "\"" << BUNCH_STR << "\" cannot be an element, only a table or an array of tables" << std::endl;
+        }
+    } else {
+        out << "No [" << BUNCH_STR << "] or [[" << BUNCH_STR << "]] in config" << std::endl;
     }
 }
 

@@ -29,7 +29,7 @@ private:
     void solve_poisson_equation(double D=0.0);
     void init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
     size_t count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho);
-    void init_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho, double gamma);
+    void init_bunch_particles(size_t index, ivector3d ppc, std::function<double(double, double, double)> rho, double gamma);
     void init_a_sqr(std::function<double(double, double, double)> func);
     void increase_minimum(array3d & array, int slice, double value) const;
     void increase_minimum(array2d & array, double value) const;

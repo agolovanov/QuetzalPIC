@@ -29,5 +29,5 @@ struct System_parameters {
     std::function<double(double, double)> plasma_profile = constant2d(-1.0);
 
     Output_parameters output_parameters;
-    Bunch_parameters bunch_parameters;
+    std::vector<Bunch_parameters> bunch_parameters_array;
 };
