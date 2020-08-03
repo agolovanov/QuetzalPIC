@@ -16,6 +16,19 @@ std::function<double(double, double, double)> constant3d(double amplitude) {
     return func;
 }
 
+std::function<double(double, double, double)> parabolic3d(double amplitude, double xsize, double rsize, vector3d r0) {
+    auto func = [amplitude, xsize, rsize, r0] (double x, double y, double z) -> double {
+        const double r_squared = (y - r0.y) * (y - r0.y) + (z - r0.z) * (z - r0.z);
+        const double x_rel_squared = (x - r0.x) * (x - r0.x);
+        if ((r_squared <= rsize * rsize) && (x_rel_squared < xsize * xsize)) {
+            return amplitude * (1 - x_rel_squared / xsize / xsize) * (1 - r_squared / rsize / rsize);
+        } else {
+            return 0.0;
+        }
+    };
+    return func;
+}
+
 std::function<double(double, double)> constant2d(double amplitude) {
     // Cast to void added to suppress warnings
     auto func = [amplitude] (double x, double y) -> double { (void)x; (void)y; return amplitude; };

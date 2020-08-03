@@ -140,8 +140,17 @@ void Config_reader::init_bunch() {
             width /= sqrt(8.0);
             
             params.bunch_parameters.rho = gaussian3d(rho0, width, {x0, y0, z0});
+        } else if (shape == "parabolic") {
+            const double rho0 = read_value<double>("rho0", bunch_table);
+            const double xsize = read_value<double>("xsize", bunch_table);
+            const double rsize = read_value<double>("rsize", bunch_table);
+            const double x0 = read_value<double>("x0", bunch_table);
+            const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
+            const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
+
+            params.bunch_parameters.rho = parabolic3d(rho0, xsize, rsize, {x0, y0, z0});
         } else {
-            throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\".", shape));
+            throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\" or \"parabolic\".", shape));
         }
 
     } else {
