@@ -120,7 +120,7 @@ Bunch_parameters Config_reader::parse_bunch_table(std::shared_ptr<cpptoml::table
     bunch_parameters.ppc.y = read_value<int>("ppcy", 1, bunch_table);
     bunch_parameters.ppc.z = read_value<int>("ppcz", 1, bunch_table);
 
-    bunch_parameters.gamma = read_value<int>("gamma", bunch_table);
+    bunch_parameters.gamma = read_value<double>("gamma", bunch_table);
 
     const auto shape = read_value<std::string>("shape", bunch_table);
     if (shape == "gaussian") {
