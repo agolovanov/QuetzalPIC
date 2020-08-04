@@ -6,8 +6,8 @@ class Simulation:
     def __init__(self, path):
         self.dir = path
 
-    def read_field(self, field_name, plane='xy'):
-        filename = _os.path.join(self.dir, f'Fields_{plane}.h5')
+    def read_field(self, field_name, iteration=0, plane='xy'):
+        filename = _os.path.join(self.dir, f'Fields_{plane}_{iteration:03d}.h5')
         with _h5py.File(filename, 'r') as f:
             field = f[field_name]
             result = field[()].T
