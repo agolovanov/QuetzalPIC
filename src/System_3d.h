@@ -28,8 +28,9 @@ private:
     void solve_wakefield(int iteration);
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
+    size_t count_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) const;
     void init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile);
-    size_t count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho);
+    size_t count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho) const;
     void init_bunch_particles(size_t index, Bunch_parameters bunch);
     void init_a_sqr(std::function<double(double, double, double)> func);
     void increase_minimum(array3d & array, int slice, double value) const;

@@ -94,10 +94,12 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
         bunch_particle_memory += bunch_particle_memory_array[i];
     }
 
+    const size_t wake_particles_count = count_wake_particles(ppcy, ppcz, plasma_profile);
+
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
     const long array2d_memory = 12l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 9l * sizeof(double) * n.x * n.y * n.z;
-    const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * params.ppcy * params.ppcz * n.y * n.z;
+    const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * wake_particles_count;
     const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
 
     out << "Expected RAM usage:\n";
@@ -119,7 +121,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
         init_bunch_particles(index, bunch);
         index += bunch_particles_count_array[i];
     }
-    
+
+    wake_particles = std::vector<wake_particle_2d>{wake_particles_count};
     
     fourier = Fourier2d(n.y, n.z);
 
@@ -685,25 +688,49 @@ void System_3d::solve_poisson_equation(double D) {
     fourier.backward_transform();
 }
 
-void System_3d::init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
-    assert(ppcy > 0);
-    assert(ppcz > 0);
-    wake_particles = std::vector<wake_particle_2d>(n.y * n.z * ppcy * ppcz);
+size_t System_3d::count_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) const {
+    size_t count = 0;
 
     for (int i = 0; i < ppcy * n.y; i++) {
         for (int j = 0; j < ppcz * n.z; j++) {
-            int index = ppcz * n.z * i + j;
+            const double y = (i + 0.5) * d.y / ppcy;
+            const double z = (j + 0.5) * d.z / ppcz;
+            if (plasma_profile(y, z) != 0) {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+void System_3d::init_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) {
+    assert(ppcy > 0);
+    assert(ppcz > 0);
+
+    size_t index = 0;
+
+    for (int i = 0; i < ppcy * n.y; i++) {
+        for (int j = 0; j < ppcz * n.z; j++) {
             const double y = (i + 0.5) * d.y / ppcy;
             const double z = (j + 0.5) * d.z / ppcz;
             double value = plasma_profile(y, z);
-            wake_particles[index].y = y;
-            wake_particles[index].z = z;
-            wake_particles[index].n = value / ppcy / ppcz;
+            if (value != 0) {
+                wake_particles[index].y = y;
+                wake_particles[index].z = z;
+                wake_particles[index].py = 0;
+                wake_particles[index].pz = 0;
+                wake_particles[index].py_next = 0;
+                wake_particles[index].pz_next = 0;
+                wake_particles[index].gamma = 0;
+                wake_particles[index].n = value / ppcy / ppcz;
+                index++;
+            }
         }
     }
 }
 
-size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho) {
+size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(double, double, double)> rho) const {
     assert(ppc.x > 0);
     assert(ppc.y > 0);
     assert(ppc.z > 0);
