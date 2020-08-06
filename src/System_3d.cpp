@@ -48,7 +48,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     plasma_profile(params.plasma_profile),
     magnetic_field_iterations(params.magnetic_field_iterations),
     output_parameters(params.output_parameters),
-    out(out)
+    out(out),
+    species(params.species)
 {
     if (magnetic_field_iterations < 0) {
         throw std::invalid_argument("Magnetic field iterations should be non-negative");
@@ -115,7 +116,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     size_t index = 0;
     for (int i = 0; i < bunches_count; i++) {
         const auto & bunch = params.bunch_parameters_array[i];
-        init_bunch_particles(index, bunch.ppc, bunch.rho, bunch.gamma);
+        init_bunch_particles(index, bunch);
         index += bunch_particles_count_array[i];
     }
     
@@ -174,8 +175,9 @@ void System_3d::run() {
         #pragma omp parallel for
         for (int pi = 0; pi < bunch_particles_count; pi++) {
             auto & p = bunch_particles[pi];
-            deposit(p.x, p.y, p.z, -p.n, rho_bunch);
-            deposit(p.x, p.y, p.z, -p.n * p.px / p.gamma, jx_bunch);
+            const double charge_density = species[p.species_id].charge * p.n;
+            deposit(p.x, p.y, p.z, charge_density, rho_bunch);
+            deposit(p.x, p.y, p.z, charge_density * p.px / p.gamma, jx_bunch);
         }
 
         out << "Solving wakefield..." << std::endl;
@@ -188,14 +190,16 @@ void System_3d::run() {
             #pragma omp parallel for
             for (int pi = 0; pi < bunch_particles_count; pi++) {
                 auto & p = bunch_particles[pi];
+                const double cmr = species[p.species_id].charge_to_mass_ratio;
+                
                 const double ex_particle = array_to_particle(p.x, p.y, p.z, ex);
                 const double ey_particle = array_to_particle(p.x, p.y, p.z, ey);
                 const double ez_particle = array_to_particle(p.x, p.y, p.z, ez);
                 const double by_particle = array_to_particle(p.x, p.y, p.z, by);
                 const double bz_particle = array_to_particle(p.x, p.y, p.z, bz);
-                const double fx = - ex_particle - (p.py * bz_particle - p.pz * by_particle) / p.gamma;
-                const double fy = - ey_particle + p.px * bz_particle / p.gamma;
-                const double fz = - ez_particle - p.px * by_particle / p.gamma;
+                const double fx = cmr * (ex_particle + (p.py * bz_particle - p.pz * by_particle) / p.gamma);
+                const double fy = cmr * (ey_particle - p.px * bz_particle / p.gamma);
+                const double fz = cmr * (ez_particle + p.px * by_particle / p.gamma);
 
                 p.x += dt * (p.px / p.gamma - 1);
                 p.y += dt * p.py / p.gamma;
@@ -711,7 +715,7 @@ size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(doub
                 const double x = (i + 0.5) * d.x / ppc.x;
                 const double y = (j + 0.5) * d.y / ppc.y;
                 const double z = (k + 0.5) * d.z / ppc.z;
-                if (rho(x, y, z) != 0.0) {
+                if (rho(x, y, z) > 0.0) {
                     count++;
                 }
             }
@@ -720,28 +724,29 @@ size_t System_3d::count_bunch_particles(ivector3d ppc, std::function<double(doub
     return count;
 }
 
-void System_3d::init_bunch_particles(size_t index, ivector3d ppc, std::function<double(double, double, double)> rho, double gamma) {
-    assert(ppc.x > 0);
-    assert(ppc.y > 0);
-    assert(ppc.z > 0);
+void System_3d::init_bunch_particles(size_t index, Bunch_parameters bunch) {
+    assert(bunch.ppc.x > 0);
+    assert(bunch.ppc.y > 0);
+    assert(bunch.ppc.z > 0);
     
-    for (int i = 0; i < ppc.x * n.x; i++) {
-        for (int j = 0; j < ppc.y * n.y; j++) {
-            for (int k = 0; k < ppc.z * n.z; k++) {
-                const double x = (i + 0.5) * d.x / ppc.x;
-                const double y = (j + 0.5) * d.y / ppc.y;
-                const double z = (k + 0.5) * d.z / ppc.z;
-                double value = rho(x, y, z);
-                if (value != 0.0) {
+    for (int i = 0; i < bunch.ppc.x * n.x; i++) {
+        for (int j = 0; j < bunch.ppc.y * n.y; j++) {
+            for (int k = 0; k < bunch.ppc.z * n.z; k++) {
+                const double x = (i + 0.5) * d.x / bunch.ppc.x;
+                const double y = (j + 0.5) * d.y / bunch.ppc.y;
+                const double z = (k + 0.5) * d.z / bunch.ppc.z;
+                double value = bunch.rho(x, y, z);
+                if (value > 0.0) {
                     bunch_particles[index].x = x;
                     bunch_particles[index].y = y;
                     bunch_particles[index].z = z;
                     bunch_particles[index].px = 0;
                     bunch_particles[index].py = 0;
                     bunch_particles[index].pz = 0;
-                    bunch_particles[index].gamma = gamma;
-                    bunch_particles[index].px = sqrt(gamma * gamma - 1);
-                    bunch_particles[index].n = -value / ppc.x / ppc.y / ppc.z;
+                    bunch_particles[index].gamma = bunch.gamma;
+                    bunch_particles[index].px = sqrt(bunch.gamma * bunch.gamma - 1);
+                    bunch_particles[index].n = value / bunch.ppc.x / bunch.ppc.y / bunch.ppc.z;
+                    bunch_particles[index].species_id = bunch.species_id;
                     index++;
                 }
             }

@@ -15,6 +15,10 @@ private:
 };
 
 Config_reader::Config_reader(const std::string & filename, std::ostream & out) : out(out) {
+    params.species.register_species("electron", -1, 1);
+    params.species.register_species("positron", 1, 1);
+    params.species.register_species("proton", 1, 1836.15267343);
+    
     out << "Reading config " << filename << "\n" << std::endl;
     
     config = cpptoml::parse_file(filename);
@@ -149,6 +153,9 @@ Bunch_parameters Config_reader::parse_bunch_table(std::shared_ptr<cpptoml::table
     } else {
         throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\" or \"parabolic\".", shape));
     }
+    const std::string species_str = read_value<std::string>("species", "electron", bunch_table);
+    bunch_parameters.species_id = params.species.find_species(species_str);
+
     return bunch_parameters;
 }
 

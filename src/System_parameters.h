@@ -3,6 +3,7 @@
 #include <functional>
 #include "containers.h"
 #include "profiles.h"
+#include "Species_register.h"
 
 struct Output_parameters {
     bool output3d = false;
@@ -14,6 +15,7 @@ struct Bunch_parameters {
     std::function<double(double, double, double)> rho = constant3d(0.0);
     ivector3d ppc = {1, 1, 1};
     double gamma = 1.0;
+    int species_id;
 };
 
 struct System_parameters {
@@ -30,4 +32,6 @@ struct System_parameters {
 
     Output_parameters output_parameters;
     std::vector<Bunch_parameters> bunch_parameters_array;
+
+    Species_register species;
 };

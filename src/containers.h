@@ -51,4 +51,5 @@ struct bunch_particle_3d {
     double pz = 0;
     double gamma = 1;
     double n = 0; 
+    int species_id = 0;
 };
