@@ -221,8 +221,12 @@ void Config_reader::init_plasma_profile() {
             const double z0 = read_value<double>("z0", 0.5 * params.l.z, plasma_table);
             
             params.plasma_profile = powerlaw2d(power, radius, y0, z0, min_factor, max_factor, -1.0);
+        } else if (profile == "constant") {
+            const double rho0 = read_value<double>("rho0", -1, plasma_table);
+
+            params.plasma_profile = constant2d(rho0);
         } else {
-            throw Config_exception(fmt::format("Plasma profile \"{}\" is not supported, use \"powerlaw\".", profile));
+            throw Config_exception(fmt::format("Plasma profile \"{}\" is not supported, use \"powerlaw\" or \"constant\".", profile));
         }
 
     } else {
