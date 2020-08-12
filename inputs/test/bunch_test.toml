@@ -13,7 +13,7 @@ magnetic_field_iterations = 5
 [bunch]
 gamma = 1000
 shape = "gaussian"
-rho0 = -3
+rho0 = 3
 xsigma = 4
 ysigma = 4
 zsigma = 4
