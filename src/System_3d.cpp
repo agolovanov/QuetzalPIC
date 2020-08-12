@@ -318,14 +318,14 @@ void System_3d::solve_wakefield(int iteration) {
             }
         }
 
+        // psi source deposition
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
             for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * j + k] = 0.0;
+                fourier.in[n.z * j + k] = jx_bunch(i, j, k) - rho_bunch(i, j, k) - rho_ion(j, k);
             }
         }
 
-        // psi source deposition
         #pragma omp parallel for
         for (int pi = 0; pi < particle_number; pi++) {
             auto & p = wake_particles[pi];
@@ -333,12 +333,6 @@ void System_3d::solve_wakefield(int iteration) {
         }
 
         // cacluate psi
-        #pragma omp parallel for
-        for (int j = 0; j < n.y; j++) {
-            for (int k = 0; k < n.z; k++) {
-                fourier.in[n.z * j + k] -= rho_ion(j, k);
-            }
-        }
         solve_poisson_equation();
 
         #pragma omp parallel for
@@ -431,7 +425,7 @@ void System_3d::solve_wakefield(int iteration) {
             #pragma omp parallel for
             for (int j = 0; j < n.y; j++) {
                 for (int k = 0; k < n.z; k++) {
-                    fourier.in[n.z * j + k] = - rho_ion(j, k);
+                    fourier.in[n.z * j + k] = jx_bunch(i, j, k) - rho_bunch(i, j, k) - rho_ion(j, k);
                 }
             }
 
