@@ -8,6 +8,7 @@
 struct Output_parameters {
     bool output3d = false;
     bool output_xy = false;
+    bool output_bunch = false;
     double z0;
 };
 

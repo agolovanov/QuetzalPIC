@@ -5,6 +5,8 @@
 #include "array2d.h"
 #include "array3d.h"
 #include "System_parameters.h"
+#include "containers.h"
+#include <vector>
 
 class Output_writer {
 public:
@@ -13,9 +15,11 @@ public:
     void initialize_slice_array(ivector3d size, vector3d steps, const array2d & array, const std::string name);
     void write_array(array3d & array, std::string name);
     void write_slice(array2d & array, std::string name, int slice_index);
+    void write_bunch_parameters(const std::vector<bunch_particle_3d> & particles);
 private:
     Output_parameters output_parameters;
     H5::H5File fields_file;
     H5::H5File fields_xy_file;
+    H5::H5File bunch_parameters_file;
 };
 

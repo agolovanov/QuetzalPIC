@@ -187,6 +187,8 @@ void System_3d::run() {
 
         solve_wakefield(ti);
 
+        
+
         if (ti < time_iterations - 1) {
             out << "Updating particles..." << std::endl;
 
@@ -195,14 +197,9 @@ void System_3d::run() {
                 auto & p = bunch_particles[pi];
                 const double cmr = species[p.species_id].charge_to_mass_ratio;
                 
-                const double ex_particle = array_to_particle(p.x, p.y, p.z, ex);
-                const double ey_particle = array_to_particle(p.x, p.y, p.z, ey);
-                const double ez_particle = array_to_particle(p.x, p.y, p.z, ez);
-                const double by_particle = array_to_particle(p.x, p.y, p.z, by);
-                const double bz_particle = array_to_particle(p.x, p.y, p.z, bz);
-                const double fx = cmr * (ex_particle + (p.py * bz_particle - p.pz * by_particle) / p.gamma);
-                const double fy = cmr * (ey_particle - p.px * bz_particle / p.gamma);
-                const double fz = cmr * (ez_particle + p.px * by_particle / p.gamma);
+                const double fx = cmr * (p.ex + (p.py * p.bz - p.pz * p.by) / p.gamma);
+                const double fy = cmr * (p.ey - p.px * p.bz / p.gamma);
+                const double fz = cmr * (p.ez + p.px * p.by / p.gamma);
 
                 p.x += dt * (p.px / p.gamma - 1);
                 p.y += dt * p.py / p.gamma;
@@ -601,6 +598,20 @@ void System_3d::solve_wakefield(int iteration) {
     for (auto & output_arr : output_arrays_3d) {
         output_writer.write_array(*(output_arr.ptr), output_arr.name);
     }
+
+
+    const int particles_size = bunch_particles.size();
+    #pragma omp parallel for
+    for (int i = 0; i < particles_size; i++) {
+        auto & p = bunch_particles[i];
+        p.ex = array_to_particle(p.x, p.y, p.z, ex);
+        p.ey = array_to_particle(p.x, p.y, p.z, ey);
+        p.ez = array_to_particle(p.x, p.y, p.z, ez);
+        p.by = array_to_particle(p.x, p.y, p.z, by);
+        p.bz = array_to_particle(p.x, p.y, p.z, bz);
+    }
+
+    output_writer.write_bunch_parameters(bunch_particles);
 }
 
 void System_3d::output_step(Output_writer & output_writer, 

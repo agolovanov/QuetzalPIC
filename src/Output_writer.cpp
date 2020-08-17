@@ -147,6 +147,9 @@ Output_writer::Output_writer(Output_parameters output_parameters, int count) :
     if (output_parameters.output_xy) {
         fields_xy_file = H5::H5File(fmt::format("Fields_xy_{:03d}.h5", count), H5F_ACC_TRUNC);
     }
+    if (output_parameters.output_bunch) {
+        bunch_parameters_file = H5::H5File(fmt::format("Bunch_{:03d}.h5", count), H5F_ACC_TRUNC);
+    }
 }
 
 void Output_writer::initialize_slice_array(ivector3d size, vector3d steps, const array2d & array,
@@ -178,5 +181,52 @@ void Output_writer::write_slice(array2d & array, std::string name, int slice_ind
     }
     if (output_parameters.output_xy) {
         ::write_slice(calculate_y_slice(array, output_parameters.z0), slice_index, name, fields_xy_file);
+    }
+}
+
+void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles) {
+    if (!output_parameters.output_bunch) {
+        return;
+    }
+    
+    const hsize_t size = particles.size();
+    const hsize_t dims[1] {size};
+
+    const hsize_t scalar_dims[1] {1};
+    H5::DataSpace scalar_data_space{1, scalar_dims};
+
+    H5::DataSpace dataspace(1, dims);
+
+
+    H5::DataSet x_dataset = bunch_parameters_file.createDataSet("x", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet y_dataset = bunch_parameters_file.createDataSet("y", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet z_dataset = bunch_parameters_file.createDataSet("z", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet px_dataset = bunch_parameters_file.createDataSet("px", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet py_dataset = bunch_parameters_file.createDataSet("py", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet pz_dataset = bunch_parameters_file.createDataSet("pz", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet gamma_dataset = bunch_parameters_file.createDataSet("gamma", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ex_dataset = bunch_parameters_file.createDataSet("ex", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ey_dataset = bunch_parameters_file.createDataSet("ey", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ez_dataset = bunch_parameters_file.createDataSet("ez", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet by_dataset = bunch_parameters_file.createDataSet("by", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet bz_dataset = bunch_parameters_file.createDataSet("bz", H5::PredType::NATIVE_DOUBLE, dataspace);
+
+    for (hsize_t i = 0; i < size; i++) {
+        hsize_t coords[1] = {i};
+
+        dataspace.selectElements(H5S_SELECT_SET, 1, coords);
+        const auto & p = particles[i];
+        x_dataset.write(&(p.x), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        y_dataset.write(&(p.y), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        z_dataset.write(&(p.z), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        px_dataset.write(&(p.px), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        py_dataset.write(&(p.py), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        pz_dataset.write(&(p.pz), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        gamma_dataset.write(&(p.gamma), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        ex_dataset.write(&(p.ex), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        ey_dataset.write(&(p.ey), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        ez_dataset.write(&(p.ez), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        by_dataset.write(&(p.by), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        bz_dataset.write(&(p.bz), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
     }
 }
