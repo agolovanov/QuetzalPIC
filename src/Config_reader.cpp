@@ -150,8 +150,17 @@ Bunch_parameters Config_reader::parse_bunch_table(std::shared_ptr<cpptoml::table
         const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
 
         bunch_parameters.rho = parabolic3d(rho0, xsize, rsize, {x0, y0, z0});
+    } else if (shape == "cylindrical") {
+        const double rho0 = read_value<double>("rho0", bunch_table);
+        const double xsize = read_value<double>("xsize", bunch_table);
+        const double rsize = read_value<double>("rsize", bunch_table);
+        const double x0 = read_value<double>("x0", bunch_table);
+        const double y0 = read_value<double>("y0", 0.5 * params.l.y, bunch_table);
+        const double z0 = read_value<double>("z0", 0.5 * params.l.z, bunch_table);
+
+        bunch_parameters.rho = cylindrical3d(rho0, xsize, rsize, {x0, y0, z0});
     } else {
-        throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\" or \"parabolic\".", shape));
+        throw Config_exception(fmt::format("Bunch shape \"{}\" is not supported, use \"gaussian\", \"parabolic\", or \"cylindrical\".", shape));
     }
     const std::string species_str = read_value<std::string>("species", "electron", bunch_table);
     bunch_parameters.species_id = params.species.find_species(species_str);
