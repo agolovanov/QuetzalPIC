@@ -56,5 +56,6 @@ struct bunch_particle_3d {
     double ez = 0;
     double by = 0;
     double bz = 0;
+    double chi = 0;
     int species_id = 0;
 };

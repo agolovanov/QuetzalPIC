@@ -54,6 +54,8 @@ private:
 
     double magnetic_field_D = 10.0;
 
+    double base_frequency_SI = 1.0;
+
     Output_parameters output_parameters;
     
     std::ostream & out;
@@ -88,5 +90,7 @@ private:
     Fourier2d fourier;
 
     Species_register species;
+
+    double field_schwinger;
 };
 

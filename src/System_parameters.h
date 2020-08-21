@@ -35,4 +35,6 @@ struct System_parameters {
     std::vector<Bunch_parameters> bunch_parameters_array;
 
     Species_register species;
+
+    double base_frequency_SI = 1;
 };

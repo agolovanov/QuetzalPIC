@@ -23,6 +23,8 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
     
     config = cpptoml::parse_file(filename);
 
+    params.base_frequency_SI = read_value<double>("base_frequency_SI", 1.0);
+
     params.l.x = read_value<double>("lx");
     params.l.y = read_value<double>("ly");
     params.l.z = read_value<double>("lz");

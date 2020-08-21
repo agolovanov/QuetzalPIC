@@ -13,6 +13,7 @@
 #include "array3d.h"
 #include "array_utils.h"
 #include "Output_writer.h"
+#include "constants.h"
 
 std::string memory_formatter(long bytes) {
     double res = bytes;
@@ -47,6 +48,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     ppcz(params.ppcz),
     plasma_profile(params.plasma_profile),
     magnetic_field_iterations(params.magnetic_field_iterations),
+    base_frequency_SI(params.base_frequency_SI),
     output_parameters(params.output_parameters),
     out(out),
     species(params.species)
@@ -79,6 +81,9 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     t_end = dt * (time_iterations - 1);
 
     out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
+
+    field_schwinger = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / PLANK_CONST_BAR_CGS / base_frequency_SI;
+    out << fmt::format("Schwinger field: {}\n", field_schwinger);
 
     const int bunches_count = params.bunch_parameters_array.size();
     std::vector<size_t> bunch_particles_count_array(bunches_count);
@@ -609,6 +614,12 @@ void System_3d::solve_wakefield(int iteration) {
         p.ez = array_to_particle(p.x, p.y, p.z, ez);
         p.by = array_to_particle(p.x, p.y, p.z, by);
         p.bz = array_to_particle(p.x, p.y, p.z, bz);
+
+        const double fx = p.gamma * p.ex + p.py * p.bz - p.pz * p.by;
+        const double fy = p.gamma * p.ey - p.px * p.bz;
+        const double fz = p.gamma * p.ez + p.px * p.by;
+        const double f_long = p.px * p.ex + p.py * p.ey + p.pz * p.ez;
+        p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / field_schwinger;
     }
 
     output_writer.write_bunch_parameters(bunch_particles);
