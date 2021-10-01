@@ -40,6 +40,8 @@ const std::string JZ = "jz";
 const std::string SUSCEPTIBILITY = "susceptibility";
 const std::string RHO_BUNCH = "rho_bunch";
 const std::string JX_BUNCH = "jx_bunch";
+const std::string PARTICLE_ENERGY_DENSITY = "w_particle";
+const std::string PARTICLE_SX = "sx_particle";
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
@@ -102,7 +104,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     const size_t wake_particles_count = count_wake_particles(ppcy, ppcz, plasma_profile);
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
-    const long array2d_memory = 12l * sizeof(double) * n.y * n.z;
+    const long array2d_memory = 20l * sizeof(double) * n.y * n.z;
     const long array3d_memory = 9l * sizeof(double) * n.x * n.y * n.z;
     const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * wake_particles_count;
     const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
@@ -158,6 +160,10 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     jy_next = array2d(size_yz, d, {-0.5 * d.x, 0.5 * d.y, 0}, Plane::YZ);
     jz_next = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
 
+    em_energy_density = array2d(size_yz, d, {}, Plane::YZ);
+
+    particle_energy_density = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
+    particle_sx = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
 
     init_a_sqr(params.a_sqr);
 }
@@ -238,6 +244,8 @@ void System_3d::solve_wakefield(int iteration) {
     output_arrays_2d.push_back(Output_reference<array2d>(JX, &jx));
     output_arrays_2d.push_back(Output_reference<array2d>(JY, &jy));
     output_arrays_2d.push_back(Output_reference<array2d>(JZ, &jz));
+    output_arrays_2d.push_back(Output_reference<array2d>(PARTICLE_ENERGY_DENSITY, &particle_energy_density));
+    output_arrays_2d.push_back(Output_reference<array2d>(PARTICLE_SX, &particle_sx));
 
     for (auto & output_arr : output_arrays_2d) {
         output_writer.initialize_slice_array(n, d, *(output_arr.ptr), output_arr.name);
@@ -657,6 +665,25 @@ void System_3d::output_step(Output_writer & output_writer,
             ez(i, j, k) = -(psi(j, k+1) - psi(j, k)) / d.z - by(i, j, k);
         }
         ez(i, j, n.z-1) = -(psi(j, 0) - psi(j, n.z-1)) / d.z - by(i, j, n.z-1);
+    }
+
+    // deposit particle energy density
+    #pragma omp parallel for
+    for (int j = 0; j < n.y; j++) {
+        for (int k = 0; k < n.z; k++) {
+            particle_energy_density(j, k) = 0.0;
+            particle_sx(j, k) = 0.0;
+        }
+    }
+
+    int particle_number = wake_particles.size();
+
+    #pragma omp parallel for
+    for (int pi = 0; pi < particle_number; pi++) {
+        auto & p = wake_particles[pi];
+        double vx = p.px / p.gamma;
+        deposit(p.y, p.z, - p.n * (p.gamma - 1), particle_energy_density);
+        deposit(p.y, p.z, - p.n * (p.px - vx), particle_sx);
     }
     
     for (auto & output_arr : output_arrays_2d) {
