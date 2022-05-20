@@ -37,6 +37,7 @@ private:
     void increase_minimum(array2d & array, double value) const;
     void output_step(Output_writer & output_writer, const std::vector<Output_reference<array2d>> & output_arrays_2d,
                      int slice_index);
+    void calculate_em_density();
 
     ivector3d n;
     vector3d l;
@@ -77,6 +78,8 @@ private:
     array3d ez;
     array3d by;
     array3d bz;
+    array3d em_energy_density;
+    array3d em_sx;
 
     array2d psi_prev;
     array2d psi;
@@ -88,15 +91,9 @@ private:
     array2d rho;
 
     // energy density and Poynting vectors
-    array2d em_energy_density;
     array2d particle_energy_density;
-    array2d em_sx;
-    array2d em_sy;
-    array2d em_sz;
     array2d particle_sx;
-    array2d particle_sy;
-    array2d particle_sz;
-
+    
     Fourier2d fourier;
 
     Species_register species;

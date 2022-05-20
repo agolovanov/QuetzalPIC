@@ -42,6 +42,8 @@ const std::string RHO_BUNCH = "rho_bunch";
 const std::string JX_BUNCH = "jx_bunch";
 const std::string PARTICLE_ENERGY_DENSITY = "w_particle";
 const std::string PARTICLE_SX = "sx_particle";
+const std::string EM_ENERGY_DENSITY = "w_em";
+const std::string EM_SX = "sx_em";
 
 System_3d::System_3d(System_parameters & params, std::ostream & out) : 
     l(params.l),
@@ -104,8 +106,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     const size_t wake_particles_count = count_wake_particles(ppcy, ppcz, plasma_profile);
 
     const long fourier_memory = sizeof(double) * n.y * n.z + 2 * sizeof(double) * n.y * (n.z / 2 + 1);
-    const long array2d_memory = 20l * sizeof(double) * n.y * n.z;
-    const long array3d_memory = 9l * sizeof(double) * n.x * n.y * n.z;
+    const long array2d_memory = 14l * sizeof(double) * n.y * n.z;
+    const long array3d_memory = 11l * sizeof(double) * n.x * n.y * n.z;
     const long wake_particle_memory = static_cast<long>(sizeof(wake_particle_2d)) * wake_particles_count;
     const long total_memory = array2d_memory + array3d_memory + wake_particle_memory + bunch_particle_memory + fourier_memory;
 
@@ -151,6 +153,9 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     ey = array3d(n, d, {0, 0.5 * d.y, 0});
     ez = array3d(n, d, {0, 0, 0.5 * d.z});
 
+    em_energy_density = array3d(n, d, {0, 0, 0});
+    em_sx = array3d(n, d, {0, 0, 0});
+
     psi = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
     psi_prev = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
     rho = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
@@ -159,8 +164,6 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     jz = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
     jy_next = array2d(size_yz, d, {-0.5 * d.x, 0.5 * d.y, 0}, Plane::YZ);
     jz_next = array2d(size_yz, d, {-0.5 * d.x, 0, 0.5 * d.z}, Plane::YZ);
-
-    em_energy_density = array2d(size_yz, d, {}, Plane::YZ);
 
     particle_energy_density = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
     particle_sx = array2d(size_yz, d, {0, 0, 0}, Plane::YZ);
@@ -237,6 +240,8 @@ void System_3d::solve_wakefield(int iteration) {
     output_arrays_3d.push_back(Output_reference<array3d>(EZ, &ez));
     output_arrays_3d.push_back(Output_reference<array3d>(BY, &by));
     output_arrays_3d.push_back(Output_reference<array3d>(BZ, &bz));
+    output_arrays_3d.push_back(Output_reference<array3d>(EM_ENERGY_DENSITY, &em_energy_density));
+    output_arrays_3d.push_back(Output_reference<array3d>(EM_SX, &em_sx));
 
     std::vector<Output_reference<array2d>> output_arrays_2d;
     output_arrays_2d.push_back(Output_reference<array2d>(PSI, &psi));
@@ -608,6 +613,8 @@ void System_3d::solve_wakefield(int iteration) {
 
     output_step(output_writer, output_arrays_2d, 0);
 
+    calculate_em_density();
+
     for (auto & output_arr : output_arrays_3d) {
         output_writer.write_array(*(output_arr.ptr), output_arr.name);
     }
@@ -857,6 +864,29 @@ void System_3d::increase_minimum(array2d & array, double value) const {
         for (int k = 0; k < n2; k++) {
             if (array(j, k) < value) {
                 array(j, k) = value;
+            }
+        }
+    }
+}
+
+void System_3d::calculate_em_density() {
+    #pragma omp parallel for
+    for (int i = 0; i < n.x; i++) {
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                double ex_point;
+                if (i > 0) {
+                    ex_point = 0.5 * (ex(i-1, j, k) + ex(i, j, k));
+                } else {
+                    ex_point = ex(i, j, k);
+                }
+                double ey_point = ey(i, j, k);
+                double ez_point = ez(i, j, k);
+                double by_point = by(i, j, k);
+                double bz_point = bz(i, j, k);
+                em_energy_density(i, j, k) = 0.5 * (ex_point * ex_point + ey_point * ey_point + ez_point * ez_point + by_point * by_point
+                                                    + bz_point * bz_point);
+                em_sx(i, j, k) = ey_point * bz_point - ez_point * by_point;
             }
         }
     }
