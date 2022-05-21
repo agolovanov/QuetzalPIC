@@ -10,11 +10,11 @@ public:
     array3d_t(const ivector3d n, const vector3d d = {0, 0, 0}, const vector3d origin = {0, 0, 0}) :
         n(n), data(n.x * n.y * n.z), d(d), origin(origin) {}
 
-    inline T& operator()(const size_t i, const size_t j, const size_t k) {
+    inline T& operator()(const std::size_t i, const std::size_t j, const std::size_t k) {
         return data[n.y * n.z * i + n.z * j + k];
     }
 
-    inline const T& operator()(const size_t i, const size_t j, const size_t k) const {
+    inline const T& operator()(const std::size_t i, const std::size_t j, const std::size_t k) const {
         return data[n.y * n.z * i + n.z * j + k];
     }
 
