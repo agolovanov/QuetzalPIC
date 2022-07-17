@@ -26,6 +26,25 @@ std::string memory_formatter(long bytes) {
     return fmt::format("{:5.1f} {}", res, prefixes[index]);
 }
 
+void normalize_potential(array2d & psi) {
+    int n1 = psi.get_n1();
+    int n2 = psi.get_n2();
+    double border_value = 0.0;
+    for (int i = 0; i < n1; i++) {
+        border_value += psi(i, 0);
+    }
+    for (int j = 1; j < n2; j++) {
+        border_value += psi(0, j);
+    }
+    border_value /= (n1 + n2 - 1);
+    #pragma omp parallel for
+    for (int i = 0; i < n1; i++) {
+        for (int j = 0; j < n2; j++) {
+            psi(i, j) -= border_value;
+        }
+    }
+}
+
 const std::string ASQR = "aSqr";
 const std::string PSI = "psi";
 const std::string EX = "ex";
@@ -343,6 +362,7 @@ void System_3d::solve_wakefield(int iteration) {
                 psi(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
             }
         }
+        normalize_potential(psi);
         increase_minimum(psi, psi_threshold - 1);
 
         // calculate initial gamma, px
@@ -446,6 +466,7 @@ void System_3d::solve_wakefield(int iteration) {
                     psi_middle(j, k) = (fourier.in[n.z * j + k]) / n.y / n.z;
                 }
             }
+            normalize_potential(psi_middle);
             increase_minimum(psi_middle, psi_threshold - 1);
 
             // deposit jy, jz
