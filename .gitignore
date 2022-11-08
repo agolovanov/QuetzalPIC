@@ -1,4 +1,6 @@
 build
 .vscode
+/inputs/*/
+!/inputs/test/
 /inputs/test/*
 !/inputs/test/*.toml

@@ -4,7 +4,13 @@ import numpy as _np
 
 class Simulation:
     def __init__(self, path):
-        self.dir = path
+        if not _os.path.exists(path):
+            raise ValueError(f"Path [{path}] does not exist")
+
+        if _os.path.isdir(path):
+            self.dir = path
+        else:
+            raise ValueError(f"Path [{path}] is not a directory")
 
     def read_field(self, field_name, iteration=0, plane='xy'):
         filename = _os.path.join(self.dir, f'Fields_{plane}_{iteration:03d}.h5')
