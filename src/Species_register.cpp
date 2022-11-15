@@ -3,11 +3,11 @@
 #include <stdexcept>
 #include <fmt/format.h>
 
-int Species_register::register_species(std::string name, double charge, double mass) {
+int Species_register::register_species(std::string name, double charge, double mass, bool is_photon) {
     if (is_registered(name)) {
         throw std::invalid_argument(fmt::format("Species [{}] already registered", name));
     }
-    species.push_back(Species(name, charge, mass));
+    species.push_back(Species(name, charge, mass, is_photon));
     return species.size() - 1;
 }
 

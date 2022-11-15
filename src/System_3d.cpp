@@ -212,6 +212,11 @@ void System_3d::run() {
         solve_wakefield(ti);
 
         
+        // Updating the particles
+
+        // coef = \frac{2}{3} \frac{e^2}{\hbar c} \frac{\hbar \omega}{m c^2}
+        const double coef = (2.0 / 3.0) / FINE_STRUCTURE_CONSTANT * PLANK_CONST_BAR_CGS * base_frequency_SI / (ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS);
+        const double q_coef = (ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS) / (PLANK_CONST_BAR_CGS * base_frequency_SI);
 
         if (ti < time_iterations - 1) {
             out << "Updating particles..." << std::endl;
@@ -219,19 +224,27 @@ void System_3d::run() {
             #pragma omp parallel for
             for (int pi = 0; pi < bunch_particles_count; pi++) {
                 auto & p = bunch_particles[pi];
-                const double cmr = species[p.species_id].charge_to_mass_ratio;
-                
-                const double fx = cmr * (p.ex + (p.py * p.bz - p.pz * p.by) / p.gamma);
-                const double fy = cmr * (p.ey - p.px * p.bz / p.gamma);
-                const double fz = cmr * (p.ez + p.px * p.by / p.gamma);
 
-                p.x += dt * (p.px / p.gamma - 1);
-                p.y += dt * p.py / p.gamma;
-                p.z += dt * p.pz / p.gamma;
-                p.px += dt * fx;
-                p.py += dt * fy;
-                p.pz += dt * fz;
-                p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+                if (species[p.species_id].is_photon) {
+                    p.x += dt * (p.px / p.gamma - 1);
+                    p.y += dt * p.py / p.gamma;
+                    p.z += dt * p.pz / p.gamma;
+                    p.gamma = sqrt(p.px * p.px + p.py * p.py + p.pz * p.pz);
+                } else {
+                    const double cmr = species[p.species_id].charge_to_mass_ratio;
+                
+                    const double fx = cmr * (p.ex + (p.py * p.bz - p.pz * p.by) / p.gamma);
+                    const double fy = cmr * (p.ey - p.px * p.bz / p.gamma);
+                    const double fz = cmr * (p.ez + p.px * p.by / p.gamma);
+
+                    p.x += dt * (p.px / p.gamma - 1);
+                    p.y += dt * p.py / p.gamma;
+                    p.z += dt * p.pz / p.gamma;
+                    p.px += dt * fx;
+                    p.py += dt * fy;
+                    p.pz += dt * fz;
+                    p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+                }
             }
         }
     }
@@ -807,10 +820,14 @@ void System_3d::init_bunch_particles(size_t index, Bunch_parameters bunch) {
                     bunch_particles[index].px = 0;
                     bunch_particles[index].py = 0;
                     bunch_particles[index].pz = 0;
-                    bunch_particles[index].gamma = bunch.gamma;
-                    bunch_particles[index].px = sqrt(bunch.gamma * bunch.gamma - 1);
-                    bunch_particles[index].n = value / bunch.ppc.x / bunch.ppc.y / bunch.ppc.z;
                     bunch_particles[index].species_id = bunch.species_id;
+                    bunch_particles[index].n = value / bunch.ppc.x / bunch.ppc.y / bunch.ppc.z;
+                    bunch_particles[index].gamma = bunch.gamma;
+                    if (species[bunch.species_id].is_photon) {
+                        bunch_particles[index].px = bunch.gamma;
+                    } else {
+                        bunch_particles[index].px = sqrt(bunch.gamma * bunch.gamma - 1);
+                    }
                     index++;
                 }
             }

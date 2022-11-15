@@ -18,6 +18,7 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
     params.species.register_species("electron", -1, 1);
     params.species.register_species("positron", 1, 1);
     params.species.register_species("proton", 1, 1836.15267343);
+    params.species.register_species("photon", 0, 0, true);
     
     out << "Reading config " << filename << "\n" << std::endl;
     
