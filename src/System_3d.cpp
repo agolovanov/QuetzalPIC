@@ -14,6 +14,7 @@
 #include "array_utils.h"
 #include "Output_writer.h"
 #include "constants.h"
+#include "monte_carlo.h"
 
 std::string memory_formatter(long bytes) {
     double res = bytes;
@@ -214,10 +215,6 @@ void System_3d::run() {
         
         // Updating the particles
 
-        // coef = \frac{2}{3} \frac{e^2}{\hbar c} \frac{\hbar \omega}{m c^2}
-        const double coef = (2.0 / 3.0) / FINE_STRUCTURE_CONSTANT * PLANK_CONST_BAR_CGS * base_frequency_SI / (ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS);
-        const double q_coef = (ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS) / (PLANK_CONST_BAR_CGS * base_frequency_SI);
-
         if (ti < time_iterations - 1) {
             out << "Updating particles..." << std::endl;
 
@@ -244,6 +241,22 @@ void System_3d::run() {
                     p.py += dt * fy;
                     p.pz += dt * fz;
                     p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+
+                    if (qed) {
+                        double r = rand_double();
+                        const double w = W_new(p.gamma, r, p.chi, base_frequency_SI);
+
+                        if (rand_double() < w * dt * p.gamma) {
+                            if (p.chi < 0.13333) {
+                                double rm = p.chi / 0.13333;
+                                r = r * rm;
+                            }
+                        }
+                        p.px -= r * p.px;
+                        p.py -= r * p.py;
+                        p.pz -= r * p.pz;
+                        p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+                    }
                 }
             }
         }

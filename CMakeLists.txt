@@ -24,7 +24,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=native -DNDEBUG")
 
 add_executable(quasistatic_pic src/quasistatic_pic.cpp src/System_3d.cpp src/Fourier2d.cpp src/Output_writer.cpp 
                src/Config_reader.cpp src/profiles.cpp src/array_utils.cpp src/array1d.cpp src/array2d.cpp
-               src/Species_register.cpp)
+               src/Species_register.cpp src/monte_carlo.cpp)
 target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
 target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
 

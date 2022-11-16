@@ -92,5 +92,7 @@ private:
     Species_register species;
 
     double field_schwinger;
+
+    bool qed = true;
 };
 
