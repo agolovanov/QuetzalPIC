@@ -19,6 +19,7 @@ public:
     bool is_registered(std::string name) const;
     int find_species(std::string name) const;
     inline const Species & operator[](int i) const { return species[i]; }
+    inline const std::vector<Species> & get_species() const { return species; }
 private:
-    std::vector<Species> species;  
+    std::vector<Species> species;
 };
