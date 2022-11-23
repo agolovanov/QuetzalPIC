@@ -114,7 +114,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     out << "REGISTERED SPECIES\n";
     for (auto & species : species.get_species()) {
-        out << fmt::format("{}: charge {:.4g}, mass {:.4g}, charge_to_mass_ratio {:.4g}\n", species.name, species.charge, species.mass, species.charge_to_mass_ratio);
+        auto name = (species.is_photon ? species.name + " (is photon)" : species.name);
+        out << fmt::format("{}: charge {:.4g}, mass {:.4g}, charge_to_mass_ratio {:.4g}\n", name, species.charge, species.mass, species.charge_to_mass_ratio);
     }    
     out << "----------------------------------------" << std::endl;
 
