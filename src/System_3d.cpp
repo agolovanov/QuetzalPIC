@@ -260,7 +260,7 @@ void System_3d::run() {
                             photon.px = r * p.px;
                             photon.py = r * p.py;
                             photon.pz = r * p.pz;
-                            photon.gamma = sqrt(p.px * p.px + p.py * p.py + p.pz * p.pz);
+                            photon.gamma = sqrt(photon.px * photon.px + photon.py * photon.py + photon.pz * photon.pz);
 
                             #pragma omp critical
                             photons.push_back(photon);
