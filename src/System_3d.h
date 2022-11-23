@@ -25,7 +25,7 @@ public:
     System_3d(System_parameters & params, std::ostream & out);
     void run();
 private:
-    void solve_wakefield(int iteration);
+    void solve_wakefield(int iteration, Output_writer & output_writer);
     void normalize_coordinates(double & y, double & z);
     void solve_poisson_equation(double D=0.0);
     size_t count_wake_particles(int ppcy, int ppcz, std::function<double(double, double)> plasma_profile) const;

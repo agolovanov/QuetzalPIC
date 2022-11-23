@@ -71,7 +71,8 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     base_frequency_SI(params.base_frequency_SI),
     output_parameters(params.output_parameters),
     out(out),
-    species(params.species)
+    species(params.species),
+    qed(params.qed)
 {
     if (magnetic_field_iterations < 0) {
         throw std::invalid_argument("Magnetic field iterations should be non-negative");
@@ -210,15 +211,18 @@ void System_3d::run() {
 
         out << "Solving wakefield..." << std::endl;
 
-        solve_wakefield(ti);
+        auto output_writer = Output_writer(output_parameters, ti);
 
-        
+        solve_wakefield(ti, output_writer);
+
         // Updating the particles
 
         if (ti < time_iterations - 1) {
             out << "Updating particles..." << std::endl;
 
-            #pragma omp parallel for
+            std::vector<bunch_particle_3d> photons{};
+
+            #pragma omp parallel for shared(photons)
             for (int pi = 0; pi < bunch_particles_count; pi++) {
                 auto & p = bunch_particles[pi];
 
@@ -251,20 +255,31 @@ void System_3d::run() {
                                 double rm = p.chi / 0.13333;
                                 r = r * rm;
                             }
+                    
+                            bunch_particle_3d photon{};
+                            photon.px = r * p.px;
+                            photon.py = r * p.py;
+                            photon.pz = r * p.pz;
+                            photon.gamma = sqrt(p.px * p.px + p.py * p.py + p.pz * p.pz);
+
+                            #pragma omp critical
+                            photons.push_back(photon);
+
+                            p.px -= photon.px;
+                            p.py -= photon.px;
+                            p.pz -= photon.pz;
+                            p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
                         }
-                        p.px -= r * p.px;
-                        p.py -= r * p.py;
-                        p.pz -= r * p.pz;
-                        p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
                     }
                 }
             }
+            
+            output_writer.write_photon_parameters(photons);
         }
     }
 }
 
-void System_3d::solve_wakefield(int iteration) {
-    auto output_writer = Output_writer(output_parameters, iteration);
+void System_3d::solve_wakefield(int iteration, Output_writer & output_writer) {
 
     std::vector<Output_reference<array3d>> output_arrays_3d;
     output_arrays_3d.push_back(Output_reference<array3d>(ASQR, &a_sqr));

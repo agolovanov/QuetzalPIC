@@ -150,6 +150,9 @@ Output_writer::Output_writer(Output_parameters output_parameters, int count) :
     if (output_parameters.output_bunch) {
         bunch_parameters_file = H5::H5File(fmt::format("Bunch_{:03d}.h5", count), H5F_ACC_TRUNC);
     }
+    if (output_parameters.output_photons) {
+        photons_file = H5::H5File(fmt::format("Photons_{:03d}.h5", count), H5F_ACC_TRUNC);
+    }
 }
 
 void Output_writer::initialize_slice_array(ivector3d size, vector3d steps, const array2d & array,
@@ -184,11 +187,7 @@ void Output_writer::write_slice(array2d & array, std::string name, int slice_ind
     }
 }
 
-void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles) {
-    if (!output_parameters.output_bunch) {
-        return;
-    }
-    
+void write_particle_parameters(H5::H5File & h5_output_file, const std::vector<bunch_particle_3d> & particles) {
     const hsize_t size = particles.size();
     const hsize_t dims[1] {size};
 
@@ -198,19 +197,19 @@ void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> 
     H5::DataSpace dataspace(1, dims);
 
 
-    H5::DataSet x_dataset = bunch_parameters_file.createDataSet("x", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet y_dataset = bunch_parameters_file.createDataSet("y", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet z_dataset = bunch_parameters_file.createDataSet("z", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet px_dataset = bunch_parameters_file.createDataSet("px", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet py_dataset = bunch_parameters_file.createDataSet("py", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet pz_dataset = bunch_parameters_file.createDataSet("pz", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet gamma_dataset = bunch_parameters_file.createDataSet("gamma", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet ex_dataset = bunch_parameters_file.createDataSet("ex", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet ey_dataset = bunch_parameters_file.createDataSet("ey", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet ez_dataset = bunch_parameters_file.createDataSet("ez", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet by_dataset = bunch_parameters_file.createDataSet("by", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet bz_dataset = bunch_parameters_file.createDataSet("bz", H5::PredType::NATIVE_DOUBLE, dataspace);
-    H5::DataSet chi_dataset = bunch_parameters_file.createDataSet("chi", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet x_dataset = h5_output_file.createDataSet("x", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet y_dataset = h5_output_file.createDataSet("y", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet z_dataset = h5_output_file.createDataSet("z", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet px_dataset = h5_output_file.createDataSet("px", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet py_dataset = h5_output_file.createDataSet("py", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet pz_dataset = h5_output_file.createDataSet("pz", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet gamma_dataset = h5_output_file.createDataSet("gamma", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ex_dataset = h5_output_file.createDataSet("ex", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ey_dataset = h5_output_file.createDataSet("ey", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet ez_dataset = h5_output_file.createDataSet("ez", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet by_dataset = h5_output_file.createDataSet("by", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet bz_dataset = h5_output_file.createDataSet("bz", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet chi_dataset = h5_output_file.createDataSet("chi", H5::PredType::NATIVE_DOUBLE, dataspace);
 
     for (hsize_t i = 0; i < size; i++) {
         hsize_t coords[1] = {i};
@@ -231,4 +230,20 @@ void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> 
         bz_dataset.write(&(p.bz), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
         chi_dataset.write(&(p.chi), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
     }
+}
+
+void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles) {
+    if (!output_parameters.output_bunch) {
+        return;
+    }
+    
+    write_particle_parameters(bunch_parameters_file, particles);
+}
+
+void Output_writer::write_photon_parameters(const std::vector<bunch_particle_3d> & photons) {
+    if (!output_parameters.output_photons) {
+        return;
+    }
+    
+    write_particle_parameters(photons_file, photons);
 }

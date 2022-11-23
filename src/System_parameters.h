@@ -9,6 +9,7 @@ struct Output_parameters {
     bool output3d = false;
     bool output_xy = false;
     bool output_bunch = false;
+    bool output_photons = true;
     double z0;
 };
 
@@ -37,4 +38,5 @@ struct System_parameters {
     Species_register species;
 
     double base_frequency_SI = 1;
+    bool qed = false;
 };

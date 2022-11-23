@@ -42,6 +42,8 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
 
     params.magnetic_field_iterations = read_value<int>("magnetic_field_iterations", 0);
 
+    params.qed = read_value<bool>("qed", false);
+
     out << std::endl;
 
     init_laser();
