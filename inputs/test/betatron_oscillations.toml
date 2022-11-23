@@ -1,0 +1,29 @@
+base_density_CGS = 1e18
+
+dt = 6.3
+t_end = 252
+
+lx = 20
+ly = 10
+lz = 10
+dx = 0.1
+dy = 0.1
+dz = 0.1
+
+ppcy = 1
+ppcz = 1
+
+magnetic_field_iterations = 5
+
+[bunch]
+gamma = 800
+shape = "parabolic"
+rho0 = 2
+xsize = 4
+rsize = 1
+x0 = 10
+
+[output]
+fields_3d = true
+fields_xy = true
+bunch = true
