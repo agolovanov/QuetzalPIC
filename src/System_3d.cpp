@@ -67,7 +67,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     ppcz(params.ppcz),
     plasma_profile(params.plasma_profile),
     magnetic_field_iterations(params.magnetic_field_iterations),
-    base_frequency_SI(params.base_frequency_SI),
+    plasma_units(params.base_frequency_SI),
     output_parameters(params.output_parameters),
     out(out),
     species(params.species)
@@ -101,8 +101,13 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
 
-    field_schwinger = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / PLANCK_CONST_BAR_CGS / base_frequency_SI;
-    out << fmt::format("Schwinger field: {}\n", field_schwinger);
+    out << "----------------------------------------" << std::endl;
+    out << "PLASMA UNITS\n";
+    out << fmt::format("Frequency {:.4g} rad/s\n", plasma_units.frequency);
+    out << fmt::format("Density {:.4g} cm^-3\n", plasma_units.density);
+    out << fmt::format("Wavelength {:.4g} cm\n", plasma_units.wavelength);
+    out << fmt::format("Schwinger field in plasma units: {:.4g}\n", plasma_units.field_schwinger);
+    out << "----------------------------------------" << std::endl;
 
     const int bunches_count = params.bunch_parameters_array.size();
     std::vector<size_t> bunch_particles_count_array(bunches_count);
@@ -640,7 +645,7 @@ void System_3d::solve_wakefield(int iteration) {
         const double fy = p.gamma * p.ey - p.px * p.bz;
         const double fz = p.gamma * p.ez + p.px * p.by;
         const double f_long = p.px * p.ex + p.py * p.ey + p.pz * p.ez;
-        p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / field_schwinger;
+        p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / plasma_units.field_schwinger;
     }
 
     output_writer.write_bunch_parameters(bunch_particles);

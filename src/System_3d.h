@@ -11,6 +11,7 @@
 #include "Fourier2d.h"
 #include "Output_writer.h"
 #include "Species_register.h"
+#include "Plasma_units.h"
 
 template <class T>
 struct Output_reference {
@@ -54,7 +55,7 @@ private:
 
     double magnetic_field_D = 10.0;
 
-    double base_frequency_SI = 1.0;
+    Plasma_units plasma_units;
 
     Output_parameters output_parameters;
     
@@ -90,7 +91,5 @@ private:
     Fourier2d fourier;
 
     Species_register species;
-
-    double field_schwinger;
 };
 
