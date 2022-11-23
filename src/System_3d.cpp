@@ -107,6 +107,13 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
     out << fmt::format("Density {:.4g} cm^-3\n", plasma_units.density);
     out << fmt::format("Wavelength {:.4g} cm\n", plasma_units.wavelength);
     out << fmt::format("Schwinger field in plasma units: {:.4g}\n", plasma_units.field_schwinger);
+    
+    out << "----------------------------------------" << std::endl;
+
+    out << "REGISTERED SPECIES\n";
+    for (auto & species : species.get_species()) {
+        out << fmt::format("{}: charge {:.4g}, mass {:.4g}, charge_to_mass_ratio {:.4g}\n", species.name, species.charge, species.mass, species.charge_to_mass_ratio);
+    }    
     out << "----------------------------------------" << std::endl;
 
     const int bunches_count = params.bunch_parameters_array.size();
