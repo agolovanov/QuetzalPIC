@@ -14,7 +14,7 @@ double W_new(double g, double r, double chi, double omega) {
     }
     else if (chi > 0.13333) { // 0.13(3) corresponds to a cut off at 5 omega_c
         //constexpr double coef = 9.1e-28 * 3e10 * 3e10 / (1.05e-27 * omega); // mc^2 / hbar omega
-        const double coef = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / (PLANK_CONST_CGS * omega);
+        const double coef = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / (PLANCK_CONST_CGS * omega);
         const double y = r / ((1.0 - r) * chi); // hbar * omega / (chi * (gamma * mc^2 - hbar * omega))
         const double x = powf(y, 2.0 / 3.0);
         const double exp_v = exp(-2.0 * y / 3.0);
@@ -27,7 +27,7 @@ double W_new(double g, double r, double chi, double omega) {
         const double rm = chi / 0.13333;
         //let rm = 1.0;
         r = r * rm;
-        const double coef = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / (PLANK_CONST_CGS * omega);
+        const double coef = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / (PLANCK_CONST_CGS * omega);
         const double y = r / ((1.0 - r) * chi); // hbar * omega / (chi * (gamma * mc^2 - hbar * omega))
         const double x = powf(y, 2.0 / 3.0);
         const double exp_v = exp(-2.0 * y / 3.0);

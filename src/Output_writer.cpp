@@ -187,7 +187,7 @@ void Output_writer::write_slice(array2d & array, std::string name, int slice_ind
     }
 }
 
-void write_particle_parameters(H5::H5File & h5_output_file, const std::vector<bunch_particle_3d> & particles) {
+void write_particle_parameters(H5::H5File & h5_output_file, const std::vector<bunch_particle_3d> & particles, const double weight_norm) {
     const hsize_t size = particles.size();
     const hsize_t dims[1] {size};
 
@@ -210,6 +210,7 @@ void write_particle_parameters(H5::H5File & h5_output_file, const std::vector<bu
     H5::DataSet by_dataset = h5_output_file.createDataSet("by", H5::PredType::NATIVE_DOUBLE, dataspace);
     H5::DataSet bz_dataset = h5_output_file.createDataSet("bz", H5::PredType::NATIVE_DOUBLE, dataspace);
     H5::DataSet chi_dataset = h5_output_file.createDataSet("chi", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet weight_dataset = h5_output_file.createDataSet("weight", H5::PredType::NATIVE_DOUBLE, dataspace);
 
     for (hsize_t i = 0; i < size; i++) {
         hsize_t coords[1] = {i};
@@ -229,21 +230,23 @@ void write_particle_parameters(H5::H5File & h5_output_file, const std::vector<bu
         by_dataset.write(&(p.by), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
         bz_dataset.write(&(p.bz), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
         chi_dataset.write(&(p.chi), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        const double weight = p.n * weight_norm;
+        weight_dataset.write(&weight, H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
     }
 }
 
-void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles) {
+void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles, const double weight_norm) {
     if (!output_parameters.output_bunch) {
         return;
     }
     
-    write_particle_parameters(bunch_parameters_file, particles);
+    write_particle_parameters(bunch_parameters_file, particles, weight_norm);
 }
 
-void Output_writer::write_photon_parameters(const std::vector<bunch_particle_3d> & photons) {
+void Output_writer::write_photon_parameters(const std::vector<bunch_particle_3d> & photons, const double weight_norm) {
     if (!output_parameters.output_photons) {
         return;
     }
     
-    write_particle_parameters(photons_file, photons);
+    write_particle_parameters(photons_file, photons, weight_norm);
 }

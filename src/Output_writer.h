@@ -15,8 +15,8 @@ public:
     void initialize_slice_array(ivector3d size, vector3d steps, const array2d & array, const std::string name);
     void write_array(array3d & array, std::string name);
     void write_slice(array2d & array, std::string name, int slice_index);
-    void write_bunch_parameters(const std::vector<bunch_particle_3d> & particles);
-    void write_photon_parameters(const std::vector<bunch_particle_3d> & photons);
+    void write_bunch_parameters(const std::vector<bunch_particle_3d> & particles, const double weight_norm);
+    void write_photon_parameters(const std::vector<bunch_particle_3d> & photons, const double weight_norm);
 private:
     Output_parameters output_parameters;
     H5::H5File fields_file;
