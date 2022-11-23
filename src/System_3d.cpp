@@ -101,7 +101,7 @@ System_3d::System_3d(System_parameters & params, std::ostream & out) :
 
     out << fmt::format("Timestep: {}, end time: {}, iterations: {}", dt, t_end, time_iterations) << std::endl;
 
-    field_schwinger = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / PLANK_CONST_BAR_CGS / base_frequency_SI;
+    field_schwinger = ELECTRON_MASS_CGS * SPEED_OF_LIGHT_CGS * SPEED_OF_LIGHT_CGS / PLANCK_CONST_BAR_CGS / base_frequency_SI;
     out << fmt::format("Schwinger field: {}\n", field_schwinger);
 
     const int bunches_count = params.bunch_parameters_array.size();
