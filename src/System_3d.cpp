@@ -648,7 +648,7 @@ void System_3d::solve_wakefield(int iteration) {
         p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / plasma_units.field_schwinger;
     }
 
-    output_writer.write_bunch_parameters(bunch_particles);
+    output_writer.write_bunch_parameters(bunch_particles, d.x * d.y * d.z * plasma_units.number_density_norm);
 }
 
 void System_3d::output_step(Output_writer & output_writer, 
