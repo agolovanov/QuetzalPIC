@@ -273,6 +273,10 @@ void System_3d::run() {
                             photon.px = r * p.px;
                             photon.py = r * p.py;
                             photon.pz = r * p.pz;
+                            photon.x = p.x;
+                            photon.y = p.y;
+                            photon.z = p.z;
+                            photon.n = p.n;
                             photon.gamma = sqrt(photon.px * photon.px + photon.py * photon.py + photon.pz * photon.pz);
 
                             #pragma omp critical
