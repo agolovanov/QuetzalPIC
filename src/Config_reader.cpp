@@ -5,6 +5,7 @@
 #include "Config_reader.h"
 #include "System_parameters.h"
 #include "profiles.h"
+#include "Plasma_units.h"
 
 class Config_exception : public std::exception {
 public:
@@ -23,7 +24,18 @@ Config_reader::Config_reader(const std::string & filename, std::ostream & out) :
     
     config = cpptoml::parse_file(filename);
 
-    params.base_frequency_SI = read_value<double>("base_frequency_SI", 1.0);
+    // determine units
+    const std::string BASE_DENSITY_STR = "base_density_CGS";
+    const std::string BASE_FREQUENCY_STR = "base_frequency_SI";
+    if (config->contains(BASE_DENSITY_STR)) {
+        if (config->contains(BASE_FREQUENCY_STR)) {
+            throw Config_exception(fmt::format("Both [{}] and [{}] exist, choose one", BASE_DENSITY_STR, BASE_FREQUENCY_STR));
+        }
+        params.base_frequency_SI = density_to_frequency(read_value<double>(BASE_DENSITY_STR));
+        fmt::print("Set {} = {}\n", BASE_FREQUENCY_STR, params.base_frequency_SI);
+    } else {
+        params.base_frequency_SI = read_value<double>(BASE_FREQUENCY_STR, 1.0);
+    }
 
     params.l.x = read_value<double>("lx");
     params.l.y = read_value<double>("ly");

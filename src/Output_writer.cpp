@@ -184,7 +184,7 @@ void Output_writer::write_slice(array2d & array, std::string name, int slice_ind
     }
 }
 
-void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles) {
+void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> & particles, const double weight_norm) {
     if (!output_parameters.output_bunch) {
         return;
     }
@@ -211,6 +211,7 @@ void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> 
     H5::DataSet by_dataset = bunch_parameters_file.createDataSet("by", H5::PredType::NATIVE_DOUBLE, dataspace);
     H5::DataSet bz_dataset = bunch_parameters_file.createDataSet("bz", H5::PredType::NATIVE_DOUBLE, dataspace);
     H5::DataSet chi_dataset = bunch_parameters_file.createDataSet("chi", H5::PredType::NATIVE_DOUBLE, dataspace);
+    H5::DataSet weight_dataset = bunch_parameters_file.createDataSet("weight", H5::PredType::NATIVE_DOUBLE, dataspace);
 
     for (hsize_t i = 0; i < size; i++) {
         hsize_t coords[1] = {i};
@@ -230,5 +231,7 @@ void Output_writer::write_bunch_parameters(const std::vector<bunch_particle_3d> 
         by_dataset.write(&(p.by), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
         bz_dataset.write(&(p.bz), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
         chi_dataset.write(&(p.chi), H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
+        const double weight = p.n * weight_norm;
+        weight_dataset.write(&weight, H5::PredType::NATIVE_DOUBLE, scalar_data_space, dataspace);
     }
 }
