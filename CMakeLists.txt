@@ -26,7 +26,6 @@ add_executable(quasistatic_pic src/quasistatic_pic.cpp src/System_3d.cpp src/Fou
                src/Config_reader.cpp src/profiles.cpp src/array_utils.cpp src/array1d.cpp src/array2d.cpp
                src/Species_register.cpp src/monte_carlo.cpp)
 target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
-target_include_directories(quasistatic_pic PRIVATE ${HDF5_INCLUDE_DIRS})
 
 target_link_libraries(quasistatic_pic ${HDF5_LIBRARIES} fftw3 fftw3_omp fmt::fmt cpptoml OpenMP::OpenMP_CXX)
 
