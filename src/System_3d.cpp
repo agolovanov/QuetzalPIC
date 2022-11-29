@@ -234,8 +234,9 @@ void System_3d::run() {
             out << "Updating particles..." << std::endl;
 
             std::vector<bunch_particle_3d> photons{};
+            double max_radiation_probability = 0.0;
 
-            #pragma omp parallel for shared(photons)
+            #pragma omp parallel for shared(photons) reduction(max : max_radiation_probability)
             for (int pi = 0; pi < bunch_particles_count; pi++) {
                 auto & p = bunch_particles[pi];
 
@@ -262,8 +263,12 @@ void System_3d::run() {
                     if (qed) {
                         double r = rand_double();
                         const double w = W_new(p.gamma, r, p.chi, plasma_units.frequency);
+                        const double radiation_probability = w * dt * p.gamma;
+                        if (radiation_probability > max_radiation_probability) {
+                            max_radiation_probability = radiation_probability;
+                        }
 
-                        if (rand_double() < w * dt * p.gamma) {
+                        if (rand_double() < radiation_probability) {
                             if (p.chi < 0.13333) {
                                 double rm = p.chi / 0.13333;
                                 r = r * rm;
@@ -290,6 +295,8 @@ void System_3d::run() {
                     }
                 }
             }
+
+            out << fmt::format("Max radiation probability {:.3g}", max_radiation_probability) << std::endl;
             
             output_writer.write_photon_parameters(photons, d.x * d.y * d.z * plasma_units.number_density_norm);
         }
@@ -388,7 +395,7 @@ void System_3d::solve_wakefield(int iteration, Output_writer & output_writer) {
 
     for (int i = n.x - 1; i >= 0; i--) {
 
-        out << "Slice " << i << std::endl;
+        out << ".";
 
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
@@ -676,6 +683,7 @@ void System_3d::solve_wakefield(int iteration, Output_writer & output_writer) {
             }
         }
     }
+    out << std::endl;
 
     output_step(output_writer, output_arrays_2d, 0);
 
