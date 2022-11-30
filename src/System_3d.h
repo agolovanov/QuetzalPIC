@@ -38,6 +38,9 @@ private:
     void increase_minimum(array2d & array, double value) const;
     void output_step(Output_writer & output_writer, const std::vector<Output_reference<array2d>> & output_arrays_2d,
                      int slice_index);
+    void deposit_wakefield_to_bunch();
+    void advance_bunch_particles(std::vector<bunch_particle_3d> & photons, double & max_radiation_probability);
+    void deposit_bunch_densities();
 
     ivector3d n;
     vector3d l;

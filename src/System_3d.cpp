@@ -200,105 +200,35 @@ void System_3d::run() {
     for (int ti = 0; ti < time_iterations; ti++) {
         out << "Iteration " << ti << std::endl;
 
-        out << "Depositing densities..." << std::endl;
+        out << "Depositing bunch densities..." << std::endl;
 
-        #pragma omp parallel for
-        for (int i = 0; i < n.x; i++) {
-            for (int j = 0; j < n.y; j++) {
-                for (int k = 0; k < n.z; k++) {
-                    rho_bunch(i, j, k) = 0.0;
-                    jx_bunch(i, j, k) = 0.0;
-                }
-            }
-        }
+        deposit_bunch_densities();
 
-        const int bunch_particles_count = bunch_particles.size();
-
-        #pragma omp parallel for
-        for (int pi = 0; pi < bunch_particles_count; pi++) {
-            auto & p = bunch_particles[pi];
-            const double charge_density = species[p.species_id].charge * p.n;
-            deposit(p.x, p.y, p.z, charge_density, rho_bunch);
-            deposit(p.x, p.y, p.z, charge_density * p.px / p.gamma, jx_bunch);
-        }
-
-        out << "Solving wakefield..." << std::endl;
+        out << "Solving wakefield" << std::flush;
 
         auto output_writer = Output_writer(output_parameters, ti);
 
         solve_wakefield(ti, output_writer);
 
         // Updating the particles
+        out << "Depositing fields to particles..." << std::endl;
+
+        deposit_wakefield_to_bunch();
+
+        output_writer.write_bunch_parameters(bunch_particles, d.x * d.y * d.z * plasma_units.number_density_norm);
+
+        out << "Advancing particles..." << std::endl;
 
         if (ti < time_iterations - 1) {
-            out << "Updating particles..." << std::endl;
-
             std::vector<bunch_particle_3d> photons{};
             double max_radiation_probability = 0.0;
 
-            #pragma omp parallel for shared(photons) reduction(max : max_radiation_probability)
-            for (int pi = 0; pi < bunch_particles_count; pi++) {
-                auto & p = bunch_particles[pi];
+            advance_bunch_particles(photons, max_radiation_probability);
 
-                if (species[p.species_id].is_photon) {
-                    p.x += dt * (p.px / p.gamma - 1);
-                    p.y += dt * p.py / p.gamma;
-                    p.z += dt * p.pz / p.gamma;
-                    p.gamma = sqrt(p.px * p.px + p.py * p.py + p.pz * p.pz);
-                } else {
-                    const double cmr = species[p.species_id].charge_to_mass_ratio;
-                
-                    const double fx = cmr * (p.ex + (p.py * p.bz - p.pz * p.by) / p.gamma);
-                    const double fy = cmr * (p.ey - p.px * p.bz / p.gamma);
-                    const double fz = cmr * (p.ez + p.px * p.by / p.gamma);
-
-                    p.x += dt * (p.px / p.gamma - 1);
-                    p.y += dt * p.py / p.gamma;
-                    p.z += dt * p.pz / p.gamma;
-                    p.px += dt * fx;
-                    p.py += dt * fy;
-                    p.pz += dt * fz;
-                    p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
-
-                    if (qed) {
-                        double r = rand_double();
-                        const double w = W_new(p.gamma, r, p.chi, plasma_units.frequency);
-                        const double radiation_probability = w * dt * p.gamma;
-                        if (radiation_probability > max_radiation_probability) {
-                            max_radiation_probability = radiation_probability;
-                        }
-
-                        if (rand_double() < radiation_probability) {
-                            if (p.chi < 0.13333) {
-                                double rm = p.chi / 0.13333;
-                                r = r * rm;
-                            }
-                    
-                            bunch_particle_3d photon{};
-                            photon.px = r * p.px;
-                            photon.py = r * p.py;
-                            photon.pz = r * p.pz;
-                            photon.x = p.x;
-                            photon.y = p.y;
-                            photon.z = p.z;
-                            photon.n = p.n;
-                            photon.gamma = sqrt(photon.px * photon.px + photon.py * photon.py + photon.pz * photon.pz);
-
-                            #pragma omp critical
-                            photons.push_back(photon);
-
-                            p.px -= photon.px;
-                            p.py -= photon.px;
-                            p.pz -= photon.pz;
-                            p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
-                        }
-                    }
-                }
+            if (qed) {
+                out << fmt::format("Max radiation probability {:.3g}", max_radiation_probability) << std::endl;
+                output_writer.write_photon_parameters(photons, d.x * d.y * d.z * plasma_units.number_density_norm);
             }
-
-            out << fmt::format("Max radiation probability {:.3g}", max_radiation_probability) << std::endl;
-            
-            output_writer.write_photon_parameters(photons, d.x * d.y * d.z * plasma_units.number_density_norm);
         }
     }
 }
@@ -690,26 +620,6 @@ void System_3d::solve_wakefield(int iteration, Output_writer & output_writer) {
     for (auto & output_arr : output_arrays_3d) {
         output_writer.write_array(*(output_arr.ptr), output_arr.name);
     }
-
-
-    const int particles_size = bunch_particles.size();
-    #pragma omp parallel for
-    for (int i = 0; i < particles_size; i++) {
-        auto & p = bunch_particles[i];
-        p.ex = array_to_particle(p.x, p.y, p.z, ex);
-        p.ey = array_to_particle(p.x, p.y, p.z, ey);
-        p.ez = array_to_particle(p.x, p.y, p.z, ez);
-        p.by = array_to_particle(p.x, p.y, p.z, by);
-        p.bz = array_to_particle(p.x, p.y, p.z, bz);
-
-        const double fx = p.gamma * p.ex + p.py * p.bz - p.pz * p.by;
-        const double fy = p.gamma * p.ey - p.px * p.bz;
-        const double fz = p.gamma * p.ez + p.px * p.by;
-        const double f_long = p.px * p.ex + p.py * p.ey + p.pz * p.ez;
-        p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / plasma_units.field_schwinger;
-    }
-
-    output_writer.write_bunch_parameters(bunch_particles, d.x * d.y * d.z * plasma_units.number_density_norm);
 }
 
 void System_3d::output_step(Output_writer & output_writer, 
@@ -923,5 +833,110 @@ void System_3d::increase_minimum(array2d & array, double value) const {
                 array(j, k) = value;
             }
         }
+    }
+}
+
+void System_3d::deposit_wakefield_to_bunch() {
+    const int particles_size = bunch_particles.size();
+    #pragma omp parallel for
+    for (int i = 0; i < particles_size; i++) {
+        auto & p = bunch_particles[i];
+        p.ex = array_to_particle(p.x, p.y, p.z, ex);
+        p.ey = array_to_particle(p.x, p.y, p.z, ey);
+        p.ez = array_to_particle(p.x, p.y, p.z, ez);
+        p.by = array_to_particle(p.x, p.y, p.z, by);
+        p.bz = array_to_particle(p.x, p.y, p.z, bz);
+
+        const double fx = p.gamma * p.ex + p.py * p.bz - p.pz * p.by;
+        const double fy = p.gamma * p.ey - p.px * p.bz;
+        const double fz = p.gamma * p.ez + p.px * p.by;
+        const double f_long = p.px * p.ex + p.py * p.ey + p.pz * p.ez;
+        p.chi = sqrt(fx * fx + fy * fy + fz * fz - f_long * f_long) / plasma_units.field_schwinger;
+    }
+}
+
+void System_3d::advance_bunch_particles(std::vector<bunch_particle_3d> & photons, double & max_radiation_probability) {
+    const int bunch_particles_count = bunch_particles.size();
+    
+    #pragma omp parallel for shared(photons) reduction(max : max_radiation_probability)
+    for (int pi = 0; pi < bunch_particles_count; pi++) {
+        auto & p = bunch_particles[pi];
+
+        if (species[p.species_id].is_photon) {
+            p.x += dt * (p.px / p.gamma - 1);
+            p.y += dt * p.py / p.gamma;
+            p.z += dt * p.pz / p.gamma;
+            p.gamma = sqrt(p.px * p.px + p.py * p.py + p.pz * p.pz);
+        } else {
+            const double cmr = species[p.species_id].charge_to_mass_ratio;
+        
+            const double fx = cmr * (p.ex + (p.py * p.bz - p.pz * p.by) / p.gamma);
+            const double fy = cmr * (p.ey - p.px * p.bz / p.gamma);
+            const double fz = cmr * (p.ez + p.px * p.by / p.gamma);
+
+            p.x += dt * (p.px / p.gamma - 1);
+            p.y += dt * p.py / p.gamma;
+            p.z += dt * p.pz / p.gamma;
+            p.px += dt * fx;
+            p.py += dt * fy;
+            p.pz += dt * fz;
+            p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+
+            if (qed) {
+                double r = rand_double();
+                const double w = W_new(p.gamma, r, p.chi, plasma_units.frequency);
+                const double radiation_probability = w * dt * p.gamma;
+                if (radiation_probability > max_radiation_probability) {
+                    max_radiation_probability = radiation_probability;
+                }
+
+                if (rand_double() < radiation_probability) {
+                    if (p.chi < 0.13333) {
+                        double rm = p.chi / 0.13333;
+                        r = r * rm;
+                    }
+            
+                    bunch_particle_3d photon{};
+                    photon.px = r * p.px;
+                    photon.py = r * p.py;
+                    photon.pz = r * p.pz;
+                    photon.x = p.x;
+                    photon.y = p.y;
+                    photon.z = p.z;
+                    photon.n = p.n;
+                    photon.gamma = sqrt(photon.px * photon.px + photon.py * photon.py + photon.pz * photon.pz);
+
+                    #pragma omp critical
+                    photons.push_back(photon);
+
+                    p.px -= photon.px;
+                    p.py -= photon.px;
+                    p.pz -= photon.pz;
+                    p.gamma = sqrt(1 + p.px * p.px + p.py * p.py + p.pz * p.pz);
+                }
+            }
+        }
+    }
+}
+
+void System_3d::deposit_bunch_densities() {
+    #pragma omp parallel for
+    for (int i = 0; i < n.x; i++) {
+        for (int j = 0; j < n.y; j++) {
+            for (int k = 0; k < n.z; k++) {
+                rho_bunch(i, j, k) = 0.0;
+                jx_bunch(i, j, k) = 0.0;
+            }
+        }
+    }
+
+    const int bunch_particles_count = bunch_particles.size();
+
+    #pragma omp parallel for
+    for (int pi = 0; pi < bunch_particles_count; pi++) {
+        auto & p = bunch_particles[pi];
+        const double charge_density = species[p.species_id].charge * p.n;
+        deposit(p.x, p.y, p.z, charge_density, rho_bunch);
+        deposit(p.x, p.y, p.z, charge_density * p.px / p.gamma, jx_bunch);
     }
 }
