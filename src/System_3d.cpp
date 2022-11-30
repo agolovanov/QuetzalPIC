@@ -230,6 +230,8 @@ void System_3d::run() {
                 output_writer.write_photon_parameters(photons, d.x * d.y * d.z * plasma_units.number_density_norm);
             }
         }
+
+        out << std::endl;
     }
 }
 
@@ -324,8 +326,10 @@ void System_3d::solve_wakefield(int iteration, Output_writer & output_writer) {
     const double THRESHOLD_B = 100;
 
     for (int i = n.x - 1; i >= 0; i--) {
-
-        out << ".";
+        if (i % 10 == 0) {
+            out << "." << std::flush;
+        }
+        
 
         #pragma omp parallel for
         for (int j = 0; j < n.y; j++) {
