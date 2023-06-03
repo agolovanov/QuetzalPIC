@@ -722,8 +722,8 @@ void System_3d::output_step(Output_writer & output_writer,
     for (int pi = 0; pi < particle_number; pi++) {
         auto & p = wake_particles[pi];
         double vx = p.px / p.gamma;
-        deposit(p.y, p.z, - p.n * (p.gamma - 1), particle_energy_density);
-        deposit(p.y, p.z, - p.n * (p.px - vx), particle_sx);
+        deposit(p.y, p.z, - p.n * (p.gamma - 1) / (1 - vx), particle_energy_density);
+        deposit(p.y, p.z, - p.n * (p.px - vx) / (1 - vx), particle_sx);
     }
     
     for (auto & output_arr : output_arrays_2d) {
